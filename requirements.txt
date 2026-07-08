@@ -1,0 +1,11 @@
+arxiv
+pypdf
+pymupdf
+langchain
+langchain-community
+langchain-ollama
+chromadb
+langchain-chroma
+sentence-transformers
+ragas
+datasets

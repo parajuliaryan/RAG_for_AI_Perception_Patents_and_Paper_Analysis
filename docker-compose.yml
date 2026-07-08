@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag-app
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    extra_hosts:
+      # Needed on Linux so host.docker.internal resolves to the host machine.
+      # Docker Desktop (Mac/Windows) already handles this automatically.
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    stdin_open: true
+    tty: true
