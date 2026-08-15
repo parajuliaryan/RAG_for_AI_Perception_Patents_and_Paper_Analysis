@@ -1,4 +1,6 @@
 arxiv
+pydantic
+requests
 pypdf
 pymupdf
 langchain

@@ -8,12 +8,13 @@ services:
     volumes:
       - .:/app
     environment:
+      - PYTHONUNBUFFERED=1
       - OLLAMA_HOST=http://host.docker.internal:11434
     extra_hosts:
-      # Needed on Linux so host.docker.internal resolves to the host machine.
-      # Docker Desktop (Mac/Windows) already handles this automatically.
+      # Allows the container to access services running directly on the host (like Ollama)
       - "host.docker.internal:host-gateway"
     ports:
+      # Keep this if you plan to run FastAPI or a web UI later on port 8000
       - "8000:8000"
     stdin_open: true
     tty: true
