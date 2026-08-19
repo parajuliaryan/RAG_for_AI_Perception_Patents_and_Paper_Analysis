@@ -1,0 +1,64 @@
+# ==========================================
+# 1. RAG Data & Vector Database (DO NOT PUSH)
+# ==========================================
+# Raw scraped papers, PDFs, and JSON metadata
+data/raw/
+data/processed/
+*.pdf
+*.json
+
+# ChromaDB storage (SQLite database, HNSW vector files, indexes)
+data/vector_store/
+*.sqlite3
+*.db
+
+# ==========================================
+# 2. Environment Variables & Secrets
+# ==========================================
+# API keys (PatentsView, OpenAI, etc.) and credentials
+.env
+.env.local
+*.env
+
+# ==========================================
+# 3. Python Bytecode & Cache
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# 4. Virtual Environments
+# ==========================================
+venv/
+.venv/
+env/
+ENV/
+
+# ==========================================
+# 5. IDE & OS Generated Files
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# VS Code / JetBrains PyCharm
+.vscode/
+.idea/
+
+# ==========================================
+# 6. Logs & Temp Files
+# ==========================================
+*.log
+logs/
+tmp/
+.cache/
