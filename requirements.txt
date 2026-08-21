@@ -11,3 +11,4 @@ langchain-chroma
 sentence-transformers
 ragas
 datasets
+streamlit

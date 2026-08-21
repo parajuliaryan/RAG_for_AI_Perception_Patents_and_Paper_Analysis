@@ -10,11 +10,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - OLLAMA_HOST=http://host.docker.internal:11434
+      - PYTHONPATH=/app   # <-- ADD THIS LINE
     extra_hosts:
-      # Allows the container to access services running directly on the host (like Ollama)
       - "host.docker.internal:host-gateway"
     ports:
-      # Keep this if you plan to run FastAPI or a web UI later on port 8000
       - "8000:8000"
+      - "8501:8501"
     stdin_open: true
     tty: true
+    command: streamlit run src/frontend/app.py --server.address=0.0.0.0 --server.port=8501
