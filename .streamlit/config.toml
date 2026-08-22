@@ -1,0 +1,9 @@
+[server]
+# Disable file watching for installed packages (site-packages).
+# Without this, Streamlit tries to scan the entire transformers library
+# (pulled in by ragas/datasets) and hangs on missing torchvision imports.
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
+
