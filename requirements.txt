@@ -1,4 +1,5 @@
 arxiv
+python-dotenv
 pydantic
 requests
 pypdf

@@ -1,5 +1,9 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file automatically — safe to call even if .env doesn't exist
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Base Paths
@@ -35,3 +39,9 @@ CHUNK_OVERLAP: int = 50
 # ---------------------------------------------------------------------------
 COLLECTION_NAME: str = "ai_perception_docs"
 TOP_K_DEFAULT: int = 3
+
+# ---------------------------------------------------------------------------
+# External API Keys  (loaded from .env — never hardcode here)
+# ---------------------------------------------------------------------------
+EPO_CONSUMER_KEY: str = os.getenv("EPO_CONSUMER_KEY", "")
+EPO_CONSUMER_SECRET: str = os.getenv("EPO_CONSUMER_SECRET", "")

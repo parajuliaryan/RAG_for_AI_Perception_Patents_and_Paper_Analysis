@@ -49,6 +49,25 @@ class Pipeline:
         )
         return stats
 
+    def run_ingestion_patents(self, domains: List[str], max_patents: int = 3) -> dict:
+        """
+        Runs the patent ingestion workflow.
+
+        Args:
+            domains:     List of domain names to query.
+            max_patents: Maximum number of patents to fetch per run.
+
+        Returns:
+            A stats dict with keys: patents_fetched, chunks_added.
+        """
+        logger.info(f"Starting patent ingestion | domains={domains} | max_patents={max_patents}")
+        stats = self._service.ingest_patents(domains=domains, max_patents=max_patents)
+        logger.info(
+            f"Patent ingestion complete — "
+            f"{stats['patents_fetched']} patent(s) → {stats['chunks_added']} chunk(s)."
+        )
+        return stats
+
     def run_query(self, query: str, top_k: int = 3) -> None:
         """
         Runs a single research query and pretty-prints the structured JSON result.

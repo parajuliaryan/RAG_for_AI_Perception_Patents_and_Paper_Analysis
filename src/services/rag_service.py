@@ -101,6 +101,49 @@ class RAGService:
 
         return {"papers_fetched": len(papers), "chunks_added": len(chunks)}
 
+    def ingest_patents(self, domains: List[str], max_patents: int = 5) -> Dict[str, int]:
+        """
+        Scrapes Crossref for patents, standardizes, chunks, and indexes into ChromaDB.
+
+        Args:
+            domains:     Domain names to query (matched against PatentScraper.DOMAIN_KEYWORDS).
+            max_patents: Maximum number of patents to fetch per call.
+
+        Returns:
+            Dict with keys: patents_fetched (int), chunks_added (int).
+        """
+        logger.info(f"Starting patent ingestion | domains={domains} | max_patents={max_patents}")
+        
+        from src.ingestion.patent_scraper import PatentScraper
+        scraper = PatentScraper()
+        
+        query = scraper.build_query(
+            selected_domains=domains,
+            start_date="2020-01-01",
+            end_date="2026-12-31",
+        )
+        patents = scraper.fetch(query=query, max_results=max_patents)
+
+        if not patents:
+            logger.warning("No patents fetched — check your query or network connection.")
+            return {"patents_fetched": 0, "chunks_added": 0}
+
+        # Persist raw JSON for debugging / reproducibility
+        cfg.RAW_PATENTS_DIR.mkdir(parents=True, exist_ok=True)
+        for patent in patents:
+            file_path = cfg.RAW_PATENTS_DIR / f"{patent.id.replace('/', '_')}.json"
+            file_path.write_text(patent.model_dump_json(indent=2), encoding="utf-8")
+        logger.debug(f"Saved {len(patents)} raw patent file(s) to '{cfg.RAW_PATENTS_DIR}'.")
+
+        # Process → chunk → embed → store
+        std_docs = self.standardizer.process(patents)
+        chunks = self.chunker.chunk(std_docs)
+        logger.info(f"Produced {len(chunks)} chunk(s) from {len(patents)} patent(s).")
+
+        self.vector_store.add_documents(chunks)
+
+        return {"patents_fetched": len(patents), "chunks_added": len(chunks)}
+
     # ------------------------------------------------------------------
     # Query & Generation
     # ------------------------------------------------------------------

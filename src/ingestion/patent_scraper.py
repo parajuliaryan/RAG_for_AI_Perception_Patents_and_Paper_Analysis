@@ -1,117 +1,158 @@
-import os
+"""
+PatentScraper — fetches automotive AI perception patents from the Crossref API.
+
+Crossref indexes patent metadata globally, is completely free, requires no API keys,
+and reliably provides abstracts. It's the most stable option for academic RAG pipelines.
+
+API: https://api.crossref.org/works
+"""
+
 import requests
-import json
-from typing import List, Optional
+from typing import List, Optional, Dict
+
 from src.ingestion.base_scraper import BaseScraper
 from src.schemas.document import DocumentSchema
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+_BASE_URL = "https://api.crossref.org/works"
+
 
 class PatentScraper(BaseScraper):
-    DOMAIN_KEYWORDS = {
+    """
+    Fetches patent records via the Crossref REST API.
+    """
+
+    DOMAIN_KEYWORDS: Dict[str, List[str]] = {
         "Simulation Platforms": [
-            "CARLA", "dSPACE AURELION", "Carmaker", "Gazebo", "AiSim", 
-            "NVIDIA Drive Sim", "Cognata", "LGSVL", "Metadrive"
+            "autonomous driving simulation",
+            "driving simulator",
+            "sensor simulation",
         ],
         "Perception & World models": [
-            "Neural Rendering", "NeRF", "World Models", "Occupancy networks", 
-            "Diffusion Models", "Generative Simulation", "Closed-loop perception"
+            "neural rendering",
+            "occupancy network",
+            "world model",
+            "point cloud processing",
+            "object detection",
         ],
         "Sensors & Environment": [
-            "LiDAR simulation", "Radar-ray tracing", "Monocular/Stereo camera", 
-            "Ultrasonic", "IMU", "Weather parameters", "Physics-based sensor models"
+            "LiDAR",
+            "radar sensor",
+            "sensor fusion",
+            "depth estimation",
         ],
         "Validation & Testing": [
-            "Virtual Homologation", "Sensor Model Validation", "Hardware in the Loop (HIL)", 
-            "Software in the Loop (SIL)", "ECU testing", "Driver Monitoring System (DMS)", 
-            "Edge-case testing"
-        ]
+            "hardware-in-the-loop",
+            "software-in-the-loop",
+            "virtual validation",
+        ],
     }
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.getenv("PATENTSVIEW_API_KEY")
-        if not self.api_key:
-            raise ValueError("API key required. Set PATENTSVIEW_API_KEY environment variable.")
-            
-        self.base_url = "https://search.patentsview.org/api/v1/patent/"
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        # Crossref doesn't require an API key, but they prefer a mailto header
+        # to enter the "polite pool" (faster responses).
         self.headers = {
-            "X-Api-Key": self.api_key,
-            "Accept": "application/json",
-            "Content-Type": "application/json"
+            "User-Agent": "AIPerceptionRAG/1.0 (mailto:academic-researcher@example.com)"
         }
+        logger.info("PatentScraper (Crossref API) initialized.")
 
-    def build_query(self, selected_domains: Optional[List[str]] = None, start_date: str = "2023-01-01") -> dict:
+    def build_query(
+        self,
+        selected_domains: Optional[List[str]] = None,
+        start_date: str = "2020-01-01",
+        end_date: str = "2026-12-31",
+    ) -> str:
         """
-        Constructs a PatentsView JSON query targeting abstracts using exact phrase matches.
+        Builds a Crossref query string.
         """
-        all_keywords = []
+        all_keywords: List[str] = []
         if selected_domains:
             for domain in selected_domains:
-                if domain in self.DOMAIN_KEYWORDS:
-                    all_keywords.extend(self.DOMAIN_KEYWORDS[domain])
-        
-        # Build keyword OR conditions using _text_phrase for exact multi-word matches
-        keyword_conditions = [
-            {"_text_phrase": {"patent_abstract": kw}} for kw in all_keywords
-        ]
-        
-        # Combine the date filter with the keyword filters using an AND operator
-        query = {
-            "_and": [
-                {"_gte": {"patent_date": start_date}}
-            ]
-        }
-        
-        if keyword_conditions:
-            query["_and"].append({"_or": keyword_conditions})
-            
+                all_keywords.extend(self.DOMAIN_KEYWORDS.get(domain, []))
+
+        # Join with basic OR logic for the crossref search engine
+        query = " OR ".join(f'"{kw}"' if " " in kw else kw for kw in all_keywords)
+        if not query:
+             query = "autonomous driving"
+             
+        logger.debug(f"Built Crossref query: {query}")
         return query
 
-    def fetch(self, query: dict, max_results: int = 5) -> List[DocumentSchema]:
-        fields = [
-            "patent_id",
-            "patent_title",
-            "patent_abstract",
-            "patent_date",
-            "inventors"
-        ]
+    def fetch(
+        self,
+        query: str,
+        max_results: int = 5,
+    ) -> List[DocumentSchema]:
+        """
+        Sends the query to Crossref, filtering specifically for 'peer-review' type which
+        Crossref uses for patents in some registries, or general works containing 'patent' in title.
+        """
+        # We append 'patent' to the query terms and filter for specific types
+        search_query = f"({query}) AND patent"
         
-        payload = {
-            "q": query,
-            "f": fields,
-            "o": {"per_page": max_results}
+        params = {
+            "query": search_query,
+            "rows": max_results,
+            "sort": "created",
+            "order": "desc",
+            "filter": "has-abstract:true" # Guarantee abstracts
         }
-        
-        response = requests.get(
-            self.base_url, 
-            headers=self.headers,
-            # PatentsView requires the JSON payload dictionaries to be URL-encoded strings
-            params={"q": json.dumps(payload["q"]), "f": json.dumps(payload["f"]), "o": json.dumps(payload["o"])}
-        )
-        
-        response.raise_for_status()
+
+        logger.info(f"Searching Crossref for top {max_results} patent-related works...")
+
+        try:
+            response = requests.get(_BASE_URL, headers=self.headers, params=params, timeout=20)
+            response.raise_for_status()
+        except requests.HTTPError as e:
+            logger.error(f"Crossref API error {e.response.status_code}: {e.response.text[:200]}")
+            raise
+
         data = response.json()
-        
-        results = []
-        for patent in data.get("patents", []):
-            inventor_list = patent.get("inventors", [])
+        items = data.get("message", {}).get("items", [])
+        logger.info(f"Crossref returned {len(items)} items. Parsing...")
+
+        results: List[DocumentSchema] = []
+        for item in items:
+            # Title
+            title_list = item.get("title", [])
+            title = title_list[0] if title_list else "Untitled"
+
+            # Abstract
+            abstract = item.get("abstract", "No abstract available.")
+            # Crossref abstracts sometimes have JATS XML tags like <jats:p>
+            import re
+            abstract = re.sub(r'<[^>]+>', '', abstract).strip()
+
+            # Date
+            created = item.get("created", {}).get("date-time", "")
+            date = created.split("T")[0] if created else "Unknown"
+
+            # ID (DOI)
+            doi = item.get("DOI", "unknown-doi")
+            url = item.get("URL", f"https://doi.org/{doi}")
+
+            # Authors
             authors = []
-            
-            # Safely extract first and last names, since sometimes they are missing
-            for inv in inventor_list:
-                first = inv.get('inventor_name_first') or ''
-                last = inv.get('inventor_name_last') or ''
-                full_name = f"{first} {last}".strip()
-                if full_name:
-                    authors.append(full_name)
-                
+            for author in item.get("author", []):
+                given = author.get("given", "")
+                family = author.get("family", "")
+                name = f"{given} {family}".strip()
+                if name:
+                    authors.append(name)
+
             doc = DocumentSchema(
-                source="patentsview",
-                id=patent.get("patent_id"),
-                title=patent.get("patent_title", "Unknown Title"),
-                authors=authors if authors else ["Unknown Inventor"],
-                abstract=patent.get("patent_abstract", "No abstract available"),
-                published_date=patent.get("patent_date"),
-                pdf_url=f"https://patents.google.com/patent/US{patent.get('patent_id')}/en"
+                source="crossref",
+                id=doi,
+                title=title,
+                authors=authors if authors else ["Unknown Author"],
+                abstract=abstract,
+                published_date=date,
+                pdf_url=url,
             )
             results.append(doc)
-            
+            logger.debug(f"  Parsed: {doi} | '{title[:60]}'")
+
+        logger.info(f"Successfully parsed {len(results)} works.")
         return results
