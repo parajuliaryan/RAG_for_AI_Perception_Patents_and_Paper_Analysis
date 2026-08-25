@@ -97,6 +97,8 @@ class RAGService:
         chunks = self.chunker.chunk(std_docs)
         logger.info(f"Produced {len(chunks)} chunk(s) from {len(papers)} paper(s).")
 
+        self._save_chunks_for_debug(chunks)
+
         self.vector_store.add_documents(chunks)
 
         return {"papers_fetched": len(papers), "chunks_added": len(chunks)}
@@ -119,8 +121,8 @@ class RAGService:
         
         query = scraper.build_query(
             selected_domains=domains,
-            start_date="2020-01-01",
-            end_date="2026-12-31",
+            start_date="2020",
+            end_date="2026",
         )
         patents = scraper.fetch(query=query, max_results=max_patents)
 
@@ -139,10 +141,39 @@ class RAGService:
         std_docs = self.standardizer.process(patents)
         chunks = self.chunker.chunk(std_docs)
         logger.info(f"Produced {len(chunks)} chunk(s) from {len(patents)} patent(s).")
+        
+        self._save_chunks_for_debug(chunks)
 
         self.vector_store.add_documents(chunks)
 
         return {"patents_fetched": len(patents), "chunks_added": len(chunks)}
+        
+    def _save_chunks_for_debug(self, chunks: List[Dict[str, Any]]) -> None:
+        """Groups chunks by parent document and writes them to human-readable text files."""
+        if not chunks:
+            return
+            
+        grouped_chunks = {}
+        for chunk in chunks:
+            p_id = chunk.get("parent_id", "unknown_parent")
+            if p_id not in grouped_chunks:
+                grouped_chunks[p_id] = []
+            grouped_chunks[p_id].append(chunk)
+            
+        for p_id, p_chunks in grouped_chunks.items():
+            safe_id = p_id.replace('/', '_')
+            debug_path = cfg.CHUNKS_DEBUG_DIR / f"{safe_id}_chunks.txt"
+            
+            p_chunks.sort(key=lambda x: x.get("metadata", {}).get("chunk_index", 0))
+            
+            with open(debug_path, "w", encoding="utf-8") as f:
+                f.write(f"=== CHUNK DEBUG FOR: {p_id} ===\n")
+                f.write(f"Total Chunks: {len(p_chunks)}\n\n")
+                for c in p_chunks:
+                    c_idx = c.get("metadata", {}).get("chunk_index", 0)
+                    c_text = c.get("text", "")
+                    f.write(f"{'=' * 20} CHUNK {c_idx} (Length: {len(c_text)}) {'=' * 20}\n")
+                    f.write(c_text + "\n\n")
 
     # ------------------------------------------------------------------
     # Query & Generation
