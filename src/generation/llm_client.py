@@ -57,7 +57,22 @@ class GenerationPipeline:
         logger.info("Invoking LLM for structured extraction...")
         logger.debug(f"Prompt (first 300 chars):\n{prompt[:300]}...")
 
-        result: FinalOutputSchema = self.structured_llm.invoke(prompt)
+        callbacks = []
+        if cfg.ENABLE_OPIK:
+            try:
+                # Initialize Opik tracer for LangChain
+                from opik.integrations.langchain import OpikTracer
+                opik_tracer = OpikTracer()
+                callbacks.append(opik_tracer)
+                logger.debug("Opik tracing enabled for this generation step.")
+            except ImportError:
+                logger.warning("Opik is enabled but not installed. Run 'pip install opik'.")
+
+        # Pass the tracer into the callbacks config
+        result: FinalOutputSchema = self.structured_llm.invoke(
+            prompt, 
+            config={"callbacks": callbacks}
+        )
 
         logger.info("LLM extraction complete.")
         return result

@@ -12,3 +12,4 @@ langchain-chroma
 ragas
 datasets
 streamlit
+opik

@@ -48,3 +48,8 @@ TOP_K_DEFAULT: int = 5
 # ---------------------------------------------------------------------------
 EPO_CONSUMER_KEY: str = os.getenv("EPO_CONSUMER_KEY", "")
 EPO_CONSUMER_SECRET: str = os.getenv("EPO_CONSUMER_SECRET", "")
+
+OPIK_API_KEY: str = os.getenv("OPIK_API_KEY", "")
+OPIK_WORKSPACE: str = os.getenv("OPIK_WORKSPACE", "")
+OPIK_PROJECT_NAME: str = os.getenv("OPIK_PROJECT_NAME", "ai-perception-rag")
+ENABLE_OPIK: bool = os.getenv("ENABLE_OPIK", "true").lower() == "true"
