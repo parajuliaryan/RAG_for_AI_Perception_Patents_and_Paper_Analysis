@@ -6,7 +6,7 @@ from src.schemas.document import DocumentSchema
 class ArxivScraper(BaseScraper):
     DOMAIN_KEYWORDS = {
         "Simulation Platforms": [
-            "CARLA", "dSPACE AURELION", "Carmaker", "Gazebo", "AiSim", 
+            "CARLA", "AURELION", "Carmaker", "Gazebo", "AiSim", 
             "NVIDIA Drive Sim", "Cognata", "LGSVL", "Metadrive"
         ],
         "Perception & World models": [

@@ -13,3 +13,4 @@ ragas
 datasets
 streamlit
 opik
+beautifulsoup4

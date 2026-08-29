@@ -14,7 +14,7 @@ from typing import List, Dict, Any
 import src.config as cfg
 from src.ingestion.arxiv_scraper import ArxivScraper
 from src.processing.standardizer import DocumentStandardizer
-from src.processing.chunker import RecursiveChunker
+from src.processing.chunker import StructuralChunker
 from src.embeddings.ollama_embedder import OllamaEmbedder
 from src.databases.vectorstore.chroma_store import ChromaStore
 from src.retrieval.retriever import Retriever
@@ -42,7 +42,7 @@ class RAGService:
 
         self.scraper = ArxivScraper()
         self.standardizer = DocumentStandardizer()
-        self.chunker = RecursiveChunker(
+        self.chunker = StructuralChunker(
             chunk_size=cfg.CHUNK_SIZE,
             chunk_overlap=cfg.CHUNK_OVERLAP,
         )
@@ -85,17 +85,30 @@ class RAGService:
             logger.warning("No papers fetched — check your query or network connection.")
             return {"papers_fetched": 0, "chunks_added": 0}
 
-        # Persist raw JSON for debugging / reproducibility
+        # Filter out papers we have already ingested
+        new_papers = []
         cfg.RAW_ARXIV_DIR.mkdir(parents=True, exist_ok=True)
+        
         for paper in papers:
             file_path = cfg.RAW_ARXIV_DIR / f"{paper.id.replace('/', '_')}.json"
+            if file_path.exists():
+                logger.debug(f"Paper {paper.id} already exists in dataset. Skipping.")
+                continue
+            
+            # Save the new raw JSON
             file_path.write_text(paper.model_dump_json(indent=2), encoding="utf-8")
-        logger.debug(f"Saved {len(papers)} raw paper file(s) to '{cfg.RAW_ARXIV_DIR}'.")
+            new_papers.append(paper)
+            
+        if not new_papers:
+            logger.info("No new papers found. All fetched papers are already in the database.")
+            return {"papers_fetched": len(papers), "chunks_added": 0}
 
-        # Process → chunk → embed → store
-        std_docs = self.standardizer.process(papers)
+        logger.info(f"Found {len(new_papers)} new paper(s) to process and embed.")
+
+        # Process → chunk → embed → store ONLY the new papers
+        std_docs = self.standardizer.process(new_papers)
         chunks = self.chunker.chunk(std_docs)
-        logger.info(f"Produced {len(chunks)} chunk(s) from {len(papers)} paper(s).")
+        logger.info(f"Produced {len(chunks)} chunk(s) from {len(new_papers)} new paper(s).")
 
         self._save_chunks_for_debug(chunks)
 
@@ -122,7 +135,7 @@ class RAGService:
         query = scraper.build_query(
             selected_domains=domains,
             start_date="2020",
-            end_date="2026",
+            end_date="2025",
         )
         patents = scraper.fetch(query=query, max_results=max_patents)
 
@@ -130,17 +143,30 @@ class RAGService:
             logger.warning("No patents fetched — check your query or network connection.")
             return {"patents_fetched": 0, "chunks_added": 0}
 
-        # Persist raw JSON for debugging / reproducibility
+        # Filter out patents we have already ingested
+        new_patents = []
         cfg.RAW_PATENTS_DIR.mkdir(parents=True, exist_ok=True)
+        
         for patent in patents:
             file_path = cfg.RAW_PATENTS_DIR / f"{patent.id.replace('/', '_')}.json"
+            if file_path.exists():
+                logger.debug(f"Patent {patent.id} already exists in dataset. Skipping.")
+                continue
+                
+            # Save the new raw JSON
             file_path.write_text(patent.model_dump_json(indent=2), encoding="utf-8")
-        logger.debug(f"Saved {len(patents)} raw patent file(s) to '{cfg.RAW_PATENTS_DIR}'.")
+            new_patents.append(patent)
+            
+        if not new_patents:
+            logger.info("No new patents found. All fetched patents are already in the database.")
+            return {"patents_fetched": len(patents), "chunks_added": 0}
 
-        # Process → chunk → embed → store
-        std_docs = self.standardizer.process(patents)
+        logger.info(f"Found {len(new_patents)} new patent(s) to process and embed.")
+
+        # Process → chunk → embed → store ONLY the new patents
+        std_docs = self.standardizer.process(new_patents)
         chunks = self.chunker.chunk(std_docs)
-        logger.info(f"Produced {len(chunks)} chunk(s) from {len(patents)} patent(s).")
+        logger.info(f"Produced {len(chunks)} chunk(s) from {len(new_patents)} new patent(s).")
         
         self._save_chunks_for_debug(chunks)
 

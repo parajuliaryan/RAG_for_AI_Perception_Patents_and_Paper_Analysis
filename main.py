@@ -13,15 +13,25 @@ if __name__ == "__main__":
 
     # 1. Ingest papers from arXiv
     pipeline.run_ingestion(
-        domains=["Sensors & Environment", "Perception & World models"],
-        max_papers=2,
+        domains=[
+            "Simulation Platforms", 
+            "Perception & World models", 
+            "Sensors & Environment", 
+            "Validation & Testing"
+        ],
+        max_papers=5,
     )
 
-    # 2. Execute Patent Ingestion (Crossref)
+    # 2. Execute Patent Ingestion
     print("\n--- Phase 1b: Patent Ingestion ---")
     pipeline.run_ingestion_patents(
-        domains=["Sensors & Environment"],
-        max_patents=2,
+        domains=[
+            "Simulation Platforms", 
+            "Perception & World models", 
+            "Sensors & Environment", 
+            "Validation & Testing"
+        ],
+        max_patents=5,
     )
 
     # 3. Interactive Query Loop

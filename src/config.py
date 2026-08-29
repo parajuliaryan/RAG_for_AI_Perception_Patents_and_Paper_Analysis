@@ -53,3 +53,5 @@ OPIK_API_KEY: str = os.getenv("OPIK_API_KEY", "")
 OPIK_WORKSPACE: str = os.getenv("OPIK_WORKSPACE", "")
 OPIK_PROJECT_NAME: str = os.getenv("OPIK_PROJECT_NAME", "ai-perception-rag")
 ENABLE_OPIK: bool = os.getenv("ENABLE_OPIK", "true").lower() == "true"
+
+SERPAPI_KEY: str = os.getenv("SERPAPI_KEY", "")

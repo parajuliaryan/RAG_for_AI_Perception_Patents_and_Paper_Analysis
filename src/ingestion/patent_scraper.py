@@ -7,8 +7,10 @@ API: https://ops.epo.org/rest-services/published-data/search
 
 import base64
 import requests
+import time
 from typing import List, Optional, Dict
 from datetime import datetime
+from bs4 import BeautifulSoup
 
 import src.config as cfg
 from src.ingestion.base_scraper import BaseScraper
@@ -84,7 +86,7 @@ class PatentScraper(BaseScraper):
         self,
         selected_domains: Optional[List[str]] = None,
         start_date: str = "2020",
-        end_date: str = "2026",
+        end_date: str = "2025",
     ) -> str:
         """
         Builds a CQL (Contextual Query Language) string for the EPO API.
@@ -209,20 +211,74 @@ class PatentScraper(BaseScraper):
                         abstract = p_node.get("$", abstract)
                     break
             
-            # Provide standard Google Patents link for visual reference (we rely on abstract for content)
-            google_link = f"https://patents.google.com/patent/{full_id}/en"
+            # 6. Fetch Full Text (Claims & Description) via Google Patents HTML
+            full_text = self._fetch_google_patent_text(full_id)
+            if full_text:
+                combined_content = f"EPO Abstract:\n{abstract}\n\n{full_text}"
+            else:
+                combined_content = abstract
 
             doc_schema = DocumentSchema(
                 source="epo_ops",
                 id=full_id,
                 title=title,
                 authors=inventors if inventors else ["Unknown Inventor"],
-                abstract=abstract,
+                abstract=combined_content,  
                 published_date=date,
-                pdf_url=None  # We intentionally skip PDF extraction for patents to avoid Google captchas/paywalls
+                pdf_url=None
             )
             parsed_docs.append(doc_schema)
             logger.debug(f"  Parsed: {full_id} | '{title[:60]}'")
+            
+            # Sleep to respect rate limits
+            time.sleep(2.5)
 
         logger.info(f"Successfully parsed {len(parsed_docs)} patent(s) from EPO.")
         return parsed_docs
+
+    def _fetch_google_patent_text(self, patent_id: str) -> str:
+        """
+        Scrapes the HTML of Google Patents to extract Claims and Detailed Description.
+        This is 100% free and unlimited, provided we use mature patents (e.g. up to 2024) to avoid 404s.
+        """
+        import re
+        from bs4 import BeautifulSoup
+        
+        # Format ID for Google (e.g. US20240123456A1 -> US2024123456A1)
+        formatted_id = re.sub(r'^(US\d{4})0(\d+.*)$', r'\1\2', patent_id)
+        
+        url = f"https://patents.google.com/patent/{formatted_id}/en"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        
+        try:
+            logger.info(f"  -> Scraping full text HTML from Google Patents for {formatted_id}...")
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.text, "html.parser")
+            
+            # Extract Claims
+            claims_text = ""
+            claims_section = soup.find(itemprop="claims")
+            if claims_section:
+                claims_text = claims_section.get_text(separator="\n", strip=True)
+                
+            # Extract Detailed Description
+            desc_text = ""
+            desc_section = soup.find(itemprop="description")
+            if desc_section:
+                desc_text = desc_section.get_text(separator="\n", strip=True)
+                
+            full_text = ""
+            if claims_text:
+                full_text += f"# Claims\n{claims_text}\n\n"
+            if desc_text:
+                full_text += f"# Detailed Description\n{desc_text}\n"
+                
+            return full_text
+            
+        except Exception as e:
+            logger.warning(f"  -> Failed to scrape full text for {patent_id} (fallback to abstract): {e}")
+            return ""
