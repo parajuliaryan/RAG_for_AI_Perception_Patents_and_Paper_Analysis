@@ -16,9 +16,14 @@ class DocumentStandardizer:
             
             content_body = f"Abstract:\n{doc.abstract}"
             
-            # Try to fetch full text if enabled and URL is available
-            if self.use_full_text and doc.pdf_url:
-                full_text = self.pdf_parser.extract_text_from_url(doc.pdf_url, doc_id=doc.id)
+            # Try to fetch full text if enabled
+            if self.use_full_text:
+                full_text = None
+                if getattr(doc, "local_path", None):
+                    full_text = self.pdf_parser.extract_text_from_file(doc.local_path)
+                elif doc.pdf_url:
+                    full_text = self.pdf_parser.extract_text_from_url(doc.pdf_url, doc_id=doc.id)
+                    
                 if full_text:
                     content_body = f"Full Text:\n{full_text}"
                     logger.info(f"Successfully incorporated full text for {doc.id}")

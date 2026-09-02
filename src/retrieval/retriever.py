@@ -31,13 +31,14 @@ class Retriever:
     def __init__(self, vector_store: ChromaStore) -> None:
         self.vector_store = vector_store
 
-    def retrieve(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 3, where_filter: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """
         Retrieves the top-k most semantically similar chunks for a given query.
 
         Args:
             query:  The user's natural language research question.
             top_k:  Number of chunks to retrieve from the vector store.
+            where_filter: Optional metadata filter dict for ChromaDB.
 
         Returns:
             A list of chunk dicts, each containing:
@@ -47,7 +48,7 @@ class Retriever:
               - similarity_distance (float) Cosine distance (lower = more similar)
         """
         logger.info(f"Retrieving top-{top_k} chunks for query: '{query[:80]}...'")
-        results = self.vector_store.search(query=query, top_k=top_k)
+        results = self.vector_store.search(query=query, top_k=top_k, where_filter=where_filter)
         logger.debug(f"Retrieved {len(results)} chunk(s) from vector store.")
         return results
 

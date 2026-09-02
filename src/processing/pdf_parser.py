@@ -12,6 +12,32 @@ class PDFParser:
     Downloads and extracts text from PDFs directly into memory.
     """
     
+    def extract_text_from_file(self, file_path: str) -> Optional[str]:
+        """
+        Loads a PDF from a local file path and extracts its text with markdown formatting.
+        """
+        try:
+            logger.info(f"Parsing local PDF from: {file_path}")
+            doc = pymupdf.Document(file_path)
+            
+            text_blocks = []
+            for page in doc:
+                text_blocks.append(page.get_text())
+                
+            full_text = "\n".join(text_blocks).strip()
+            full_text = self._format_markdown_headers(full_text)
+            
+            if not full_text:
+                logger.warning(f"Successfully loaded local PDF, but extracted text was empty: {file_path}")
+                return None
+                
+            logger.debug(f"Successfully extracted {len(full_text)} characters from {file_path}")
+            return full_text
+            
+        except Exception as e:
+            logger.warning(f"Failed to parse local PDF from {file_path}: {e}")
+            return None
+
     def extract_text_from_url(self, url: str, doc_id: str, timeout: int = 15) -> Optional[str]:
         """
         Downloads a PDF from a URL, saves it to disk, and extracts its text.
@@ -83,8 +109,12 @@ class PDFParser:
         formatted_lines = []
         
         exact_headers = {
+            # Academic Paper Headers
             "abstract", "introduction", "methodology", "methods", "results", 
-            "discussion", "conclusion", "conclusions", "references", "background", "related work"
+            "discussion", "conclusion", "conclusions", "references", "background", "related work",
+            # Tech Patent Headers
+            "claims", "detailed description", "summary of the invention", 
+            "background of the invention", "field of the invention", "description of embodiments"
         }
         
         # Regex to catch "1 Introduction", "1. Introduction", "I. INTRODUCTION", "A. BACKGROUND"

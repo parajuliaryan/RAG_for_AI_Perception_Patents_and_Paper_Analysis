@@ -59,13 +59,22 @@ class RAGDashboard:
             height=100,
         )
 
-        col_left, col_right = st.columns([3, 1])
+        col_left, col_mid, col_right = st.columns([2, 1, 1])
+        
+        with col_mid:
+            source_filter = st.selectbox(
+                "Filter by Source",
+                options=["All Documents", "Academic Papers Only", "Patents Only"],
+                index=0,
+                help="Constrain the LLM to only read from specific document types."
+            )
+            
         with col_right:
             top_k = st.number_input(
                 "Chunks to retrieve (top-k)",
                 min_value=1,
-                max_value=10,
-                value=3,
+                max_value=20,
+                value=5,
                 step=1,
                 help="How many document chunks are passed to the LLM as context.",
             )
@@ -79,8 +88,19 @@ class RAGDashboard:
 
         # ── Results ──────────────────────────────────────────────────────────
         if run and query.strip():
+            # Build the ChromaDB where filter based on UI selection
+            where_filter = None
+            if source_filter == "Academic Papers Only":
+                where_filter = {"source": "arxiv"}
+            elif source_filter == "Patents Only":
+                where_filter = {"source": "patent"}
+                
             with st.spinner("Retrieving context and running LLM extraction..."):
-                result = self.service.analyze_query(query=query.strip(), top_k=int(top_k))
+                result = self.service.analyze_query(
+                    query=query.strip(), 
+                    top_k=int(top_k),
+                    where_filter=where_filter
+                )
 
             response = result["response"]
             context  = result["context"]
@@ -89,10 +109,7 @@ class RAGDashboard:
 
             # Primary output: structured JSON
             st.subheader("📄 Structured JSON Output")
-            st.code(
-                response.model_dump_json(indent=2),
-                language="json",
-            )
+            st.json(response.model_dump())
 
             # Download button for the JSON
             st.download_button(

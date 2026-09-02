@@ -205,13 +205,14 @@ class RAGService:
     # Query & Generation
     # ------------------------------------------------------------------
 
-    def analyze_query(self, query: str, top_k: int = None) -> Dict[str, Any]:
+    def analyze_query(self, query: str, top_k: int = None, where_filter: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Retrieves relevant context chunks and generates a structured LLM response.
 
         Args:
             query:  The user's natural language research question.
             top_k:  Number of chunks to retrieve. Defaults to cfg.TOP_K_DEFAULT.
+            where_filter: Optional metadata filter dict for ChromaDB.
 
         Returns:
             Dict with keys:
@@ -220,7 +221,7 @@ class RAGService:
         """
         effective_top_k = top_k if top_k is not None else cfg.TOP_K_DEFAULT
 
-        retrieved_chunks = self.retriever.retrieve(query=query, top_k=effective_top_k)
+        retrieved_chunks = self.retriever.retrieve(query=query, top_k=effective_top_k, where_filter=where_filter)
         structured_response: FinalOutputSchema = self.generator.generate(
             query=query,
             context_chunks=retrieved_chunks,

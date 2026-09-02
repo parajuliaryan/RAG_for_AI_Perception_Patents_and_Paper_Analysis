@@ -60,13 +60,17 @@ class ChromaStore(BaseVectorStore):
         )
         print("Storage complete.")
 
-    def search(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    def search(self, query: str, top_k: int = 3, where_filter: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         query_vector = self.embedder.embed_query(query)
         
-        results = self.collection.query(
-            query_embeddings=[query_vector],
-            n_results=top_k
-        )
+        query_args = {
+            "query_embeddings": [query_vector],
+            "n_results": top_k
+        }
+        if where_filter:
+            query_args["where"] = where_filter
+
+        results = self.collection.query(**query_args)
 
         formatted_results = []
         if results and results["documents"]:

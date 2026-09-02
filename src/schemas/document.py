@@ -9,3 +9,4 @@ class DocumentSchema(BaseModel):
     abstract: str
     published_date: str
     pdf_url: Optional[str] = None
+    local_path: Optional[str] = None
