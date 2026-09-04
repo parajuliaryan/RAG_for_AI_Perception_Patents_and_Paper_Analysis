@@ -61,4 +61,4 @@ ehthumbs.db
 *.log
 logs/
 tmp/
-.cache/
+.cache/context.md 

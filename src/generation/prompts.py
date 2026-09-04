@@ -27,10 +27,13 @@ def build_extraction_prompt(query: str, context_chunks: List[Dict[str, Any]]) ->
     for i, chunk in enumerate(context_chunks, start=1):
         source_id = chunk.get("id", "N/A")
         title = chunk.get("metadata", {}).get("title", "N/A")
+        abstract = chunk.get("metadata", {}).get("abstract", "N/A")
         content = chunk.get("text", "")
         document_blocks.append(
-            f"--- [Document {i}] ---\n"
-            f"Source ID: {source_id} | Title: {title}\n"
+            f"--- [Context Chunk {i}] ---\n"
+            f"Source ID: {source_id}\n"
+            f"Document Title: {title}\n"
+            f"Document Abstract: {abstract}\n"
             f"Content:\n{content}"
         )
 
@@ -41,7 +44,10 @@ def build_extraction_prompt(query: str, context_chunks: List[Dict[str, Any]]) ->
         "Answer the user query strictly using the provided context documents below.\n"
         "Do not extrapolate or assume details that are not present in the context.\n"
         "If the context does not contain enough information, state that explicitly.\n\n"
-        "Your primary goal is Tech Scouting. Carefully extract the following if present:\n"
+        "CRITICAL INSTRUCTIONS FOR JSON GENERATION:\n"
+        "1. For `source_document_id`, `document_title`, and `document_abstract`, you MUST extract them exactly as they appear in the metadata headers of the context blocks below.\n"
+        "2. If a specific data point (like hardware, simulators, weather, or companies) is not explicitly named in the text, you MUST output `['Not specified in document']` for that field. Do not leave lists empty [], and do not substitute author names for company names.\n\n"
+        "Your primary goal is Tech Scouting. Carefully extract the following:\n"
         "- Affiliated Companies or Institutions\n"
         "- Simulators (e.g., CARLA, AURELION, Carmaker)\n"
         "- Sensor types (e.g., LiDAR, Radar, Camera)\n"

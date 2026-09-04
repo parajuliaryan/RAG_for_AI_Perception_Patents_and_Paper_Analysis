@@ -15,6 +15,8 @@ class PerceptionFinding(BaseModel):
 
 class FinalOutputSchema(BaseModel):
     source_document_id: str
+    document_title: str
+    document_abstract: str
     affiliated_companies_or_institutions: List[str] # i. Companies / Institutions involved
     summary_of_technical_relevance: str
     key_claims_or_methodologies: List[str]
