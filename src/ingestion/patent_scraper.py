@@ -24,30 +24,18 @@ class PatentScraper(BaseScraper):
     Fetches patent records via the authoritative EPO Open Patent Services (OPS) API.
     """
 
-    DOMAIN_KEYWORDS: Dict[str, List[str]] = {
-        "Simulation Platforms": [
-            "autonomous driving simulation",
-            "driving simulator",
-            "sensor simulation",
-        ],
-        "Perception & World models": [
-            "neural rendering",
-            "occupancy network",
-            "world model",
-            "point cloud",
-            "object detection",
-        ],
-        "Sensors & Environment": [
-            "LiDAR",
-            "radar sensor",
-            "sensor fusion",
-            "depth estimation",
-        ],
-        "Validation & Testing": [
-            "hardware-in-the-loop",
-            "software-in-the-loop",
-            "virtual validation",
-        ],
+    OPTIMIZED_QUERIES: Dict[str, str] = {
+        "Sensor Model Validation": '("sensor simulation" OR "simulated perception data" OR "virtual sensor model" OR "synthetic sensor data") AND ("validation" OR "ground truth" OR "fidelity" OR "sim-to-real" OR "calibration" OR "physical measurement") AND ("autonomous" OR "ADAS" OR "vehicle")',
+        
+        "Sim2Real": '("simulated sensor data" OR "synthetic data" OR "virtual environment") AND ("real-world data" OR "physical sensor data" OR "real environment") AND ("domain adaptation" OR "domain shift" OR "reality gap" OR "sim-to-real" OR "cross-domain" OR "discrepancy" OR "transfer learning") AND ("autonomous" OR "ADAS")',
+        
+        "Virtual Homologation": '("Hardware-in-the-Loop" OR "HIL" OR "vECU" OR "electronic control unit" OR "scenario-based testing" OR "virtual testing" OR "safety validation" OR "virtual certification" OR "device under test") AND ("sensor injection" OR "closed-loop simulation" OR "fault injection" OR "real-time simulation" OR "safety metric" OR "criticality" OR "edge case") AND ("autonomous" OR "ADAS" OR "vehicle")',
+        
+        "Neural Rendering": '("neural radiance field" OR "neural rendering" OR "implicit neural representation" OR "novel view synthesis" OR "volumetric scene" OR "3D Gaussian Splatting") AND ("synthetic training data" OR "simulated sensor data" OR "generative model" OR "novel viewpoint") AND ("camera" OR "Lidar" OR "point cloud") AND ("autonomous" OR "ADAS" OR "vehicle")',
+        
+        "World Model": '("world model" OR "generative world model" OR "action-conditioned" OR "latent dynamics" OR "future state prediction") AND ("simulation" OR "synthetic data" OR "closed-loop" OR "counterfactual") AND ("autonomous vehicle" OR "autonomous driving" OR "ADAS")',
+        
+        "Driver Monitoring System": '("synthetic data" OR "simulated image" OR "synthetic training data" OR "virtual environment" OR "synthetic image generation") AND ("driver monitoring" OR "in-cabin" OR "occupant monitoring" OR "DMS" OR "OMS" OR "infrared camera") AND ("vehicle" OR "autonomous")'
     }
 
     def __init__(self) -> None:
@@ -89,18 +77,20 @@ class PatentScraper(BaseScraper):
         end_date: str = "2025",
     ) -> str:
         """
-        Builds a CQL (Contextual Query Language) string for the EPO API.
+        Builds a CQL (Contextual Query Language) string for the EPO API using optimized queries.
         """
-        all_keywords: List[str] = []
+        domain_queries: List[str] = []
         if selected_domains:
             for domain in selected_domains:
-                all_keywords.extend(self.DOMAIN_KEYWORDS.get(domain, []))
+                if domain in self.OPTIMIZED_QUERIES:
+                    domain_queries.append(f"({self.OPTIMIZED_QUERIES[domain]})")
 
-        if not all_keywords:
-            all_keywords = ["autonomous vehicle"]
+        if not domain_queries:
+            # Fallback if no domains selected or matched
+            domain_queries = ['("autonomous vehicle" OR "ADAS")']
 
-        # Format keywords for CQL (abstract matches)
-        keyword_clause = " OR ".join(f'"{kw}"' if " " in kw else kw for kw in all_keywords)
+        # Format queries for CQL (abstract matches)
+        keyword_clause = " OR ".join(domain_queries)
         
         # Restrict to US/EP patents with abstracts within the date range
         # pd = publication date, ab = abstract

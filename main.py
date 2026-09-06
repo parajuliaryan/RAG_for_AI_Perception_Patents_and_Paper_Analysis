@@ -14,10 +14,12 @@ if __name__ == "__main__":
     # 1. Ingest papers from arXiv
     pipeline.run_ingestion(
         domains=[
-            "Simulation Platforms", 
-            "Perception & World models", 
-            "Sensors & Environment", 
-            "Validation & Testing"
+            "Sensor Model Validation", 
+            "Sim2Real", 
+            "Virtual Homologation", 
+            "Neural Rendering",
+            "World Model",
+            "Driver Monitoring System"
         ],
         max_papers=5,
     )
@@ -26,10 +28,12 @@ if __name__ == "__main__":
     print("\n--- Phase 1b: Patent Ingestion ---")
     pipeline.run_ingestion_patents(
         domains=[
-            "Simulation Platforms", 
-            "Perception & World models", 
-            "Sensors & Environment", 
-            "Validation & Testing"
+            "Sensor Model Validation", 
+            "Sim2Real", 
+            "Virtual Homologation", 
+            "Neural Rendering",
+            "World Model",
+            "Driver Monitoring System"
         ],
         max_patents=5,
     )

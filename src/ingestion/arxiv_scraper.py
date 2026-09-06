@@ -4,24 +4,18 @@ from src.ingestion.base_scraper import BaseScraper
 from src.schemas.document import DocumentSchema
 
 class ArxivScraper(BaseScraper):
-    DOMAIN_KEYWORDS = {
-        "Simulation Platforms": [
-            "CARLA", "AURELION", "Carmaker", "Gazebo", "AiSim", 
-            "NVIDIA Drive Sim", "Cognata", "LGSVL", "Metadrive"
-        ],
-        "Perception & World models": [
-            "Neural Rendering", "NeRF", "World Models", "Occupancy networks", 
-            "Diffusion Models", "Generative Simulation", "Closed-loop perception"
-        ],
-        "Sensors & Environment": [
-            "LiDAR simulation", "Radar-ray tracing", "Monocular/Stereo camera", 
-            "Ultrasonic", "IMU", "Weather parameters", "Physics-based sensor models"
-        ],
-        "Validation & Testing": [
-            "Virtual Homologation", "Sensor Model Validation", "Hardware in the Loop (HIL)", 
-            "Software in the Loop (SIL)", "ECU testing", "Driver Monitoring System (DMS)", 
-            "Edge-case testing"
-        ]
+    OPTIMIZED_QUERIES = {
+        "Sensor Model Validation": 'all:"autonomous driving" AND (all:"sensor model validation" OR all:"sensor model fidelity" OR all:"physics-based sensor simulation" OR all:"LiDAR simulation validation" OR all:"radar model validation") AND (all:"dSPACE" OR all:"AURELION" OR all:"Applied Intuition" OR all:"Spectral" OR all:"aiSim" OR all:"DYNA4" OR all:"CarMaker" OR all:"CARLA" OR all:"Cognata")',
+        
+        "Sim2Real": 'all:"autonomous driving" AND (all:"sim-to-real gap" OR all:"reality gap" OR all:"synthetic vs real data" OR all:"domain gap quantification") AND (all:"perception" OR all:"object detection") AND (all:"dSPACE" OR all:"Applied Intuition" OR all:"Foretellix" OR all:"DYNA4" OR all:"CarMaker" OR all:"CARLA")',
+        
+        "Virtual Homologation": '(all:"Hardware-in-the-Loop" OR all:"HIL" OR all:"vECU" OR all:"virtual homologation" OR all:"scenario-based testing") AND (all:"sensor injection" OR all:"closed-loop" OR all:"safety assurance" OR all:"certification") AND (all:"autonomous" OR all:"ADAS")',
+        
+        "Neural Rendering": '(all:"neural rendering" OR all:"NeRF" OR all:"neural radiance field" OR all:"3D Gaussian Splatting" OR all:"3DGS") AND (all:"autonomous driving" OR all:"ADAS") AND (all:"sensor simulation" OR all:"synthetic data" OR all:"closed-loop simulation" OR all:"point cloud generation" OR all:"novel view synthesis")',
+        
+        "World Model": '(all:"world model" OR all:"world models" OR all:"generative world model") AND (all:"autonomous driving" OR all:"end-to-end driving") AND (all:"action-conditioned" OR all:"future prediction" OR all:"neural simulator" OR all:"video generation")',
+        
+        "Driver Monitoring System": '(all:"synthetic data" OR all:"simulated image" OR all:"synthetic training data" OR all:"virtual environment") AND (all:"driver monitoring" OR all:"in-cabin" OR all:"occupant monitoring" OR all:"DMS" OR all:"OMS")'
     }
 
     def __init__(self):
@@ -29,21 +23,20 @@ class ArxivScraper(BaseScraper):
 
     def build_query(self, base_category: str = "cs.CV", selected_domains: Optional[List[str]] = None, start_year: str = "2023", end_year: str = "2026") -> str:
         """
-        Dynamically constructs an arXiv API query string with categories, keyword OR-logic, and date ranges.
+        Dynamically constructs an arXiv API query using optimized boolean strings.
         """
         query_parts = [f"cat:{base_category}"]
         
-        # Append buzzwords mapped from requested domains
+        # Append pre-formatted robust queries mapped from requested domains
         if selected_domains:
-            all_keywords = []
+            domain_queries = []
             for domain in selected_domains:
-                if domain in self.DOMAIN_KEYWORDS:
-                    # Enclose terms in double quotes for exact phrase matching
-                    all_keywords.extend([f'"{kw}"' for kw in self.DOMAIN_KEYWORDS[domain]])
+                if domain in self.OPTIMIZED_QUERIES:
+                    domain_queries.append(f"({self.OPTIMIZED_QUERIES[domain]})")
             
-            if all_keywords:
-                # arXiv interprets "all:" as searching within title, abstract, and authors
-                keyword_query = " OR ".join([f"all:{kw}" for kw in all_keywords])
+            if domain_queries:
+                # If multiple use cases are selected, combine them with OR
+                keyword_query = " OR ".join(domain_queries)
                 query_parts.append(f"({keyword_query})")
         
         # Enforce date range filtering natively in the API query
