@@ -40,24 +40,15 @@ def build_extraction_prompt(query: str, context_chunks: List[Dict[str, Any]]) ->
     context_str = "\n\n".join(document_blocks)
 
     prompt = (
-        "You are an expert AI perception and automotive systems researcher.\n"
-        "Answer the user query strictly using the provided context documents below.\n"
-        "Do not extrapolate or assume details that are not present in the context.\n"
-        "If the context does not contain enough information, state that explicitly.\n\n"
-        "CRITICAL INSTRUCTIONS FOR JSON GENERATION:\n"
-        "1. For `source_document_id`, `document_title`, and `document_abstract`, you MUST extract them exactly as they appear in the metadata headers of the context blocks below.\n"
-        "2. If a specific data point (like hardware, simulators, weather, or companies) is not explicitly named in the text, you MUST output `['Not specified in document']` for that field. Do not leave lists empty [], and do not substitute author names for company names.\n\n"
-        "Your primary goal is Tech Scouting. Carefully extract the following:\n"
-        "- Affiliated Companies or Institutions\n"
-        "- Simulators (e.g., CARLA, AURELION, Carmaker)\n"
-        "- Sensor types (e.g., LiDAR, Radar, Camera)\n"
-        "- Weather and environmental parameters tested\n"
-        "- Target Use Cases (e.g., Sensor Validation, Virtual Homologation, Neural Rendering)\n"
-        "- Core technologies and buzzwords\n"
-        "- ECU or Hardware tested\n"
-        "- Tested scenarios and Evaluated KPIs (e.g., mAP, latency)\n"
-        "- Operational constraints or assumptions made\n"
-        "\n"
+        "You are an expert AI perception tech scout. Extract exact entities from the context.\n\n"
+        "CRITICAL RULES:\n"
+        "1. DO NOT invent filler text or write full sentences.\n"
+        "2. If a field (like simulators or hardware) is not mentioned, you MUST output EXACTLY `[\"None\"]`.\n\n"
+        "EXAMPLE OF CORRECT BEHAVIOR WHEN DATA IS MISSING:\n"
+        '{\n'
+        '  "simulators_used": ["None"],\n'
+        '  "ecu_or_hardware_tested": ["None"]\n'
+        '}\n\n'
         f"User Query:\n{query}\n"
         "\n"
         f"Context:\n{context_str}\n"

@@ -50,6 +50,7 @@ class DocumentStandardizer:
                 "metadata": {
                     "source": doc.source,
                     "title": doc.title,
+                    "abstract": doc.abstract,
                     "published_date": doc.published_date,
                     "pdf_url": doc.pdf_url
                 }
