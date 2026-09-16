@@ -43,11 +43,12 @@ def build_extraction_prompt(query: str, context_chunks: List[Dict[str, Any]]) ->
         "You are an expert AI perception tech scout. Extract exact entities from the context.\n\n"
         "CRITICAL RULES:\n"
         "1. DO NOT invent filler text or write full sentences.\n"
-        "2. If a field (like simulators or hardware) is not mentioned, you MUST output EXACTLY `[\"None\"]`.\n\n"
+        "2. If a field is not mentioned, you MUST output EXACTLY `[\"None\"]`.\n"
+        "3. If the document is an academic paper, DO NOT generate a `patent_metadata` object (leave it null/empty).\n\n"
         "EXAMPLE OF CORRECT BEHAVIOR WHEN DATA IS MISSING:\n"
         '{\n'
-        '  "simulators_used": ["None"],\n'
-        '  "ecu_or_hardware_tested": ["None"]\n'
+        '  "simulation_tools_or_solvers": ["None"],\n'
+        '  "hardware_target_or_deployment_platform": ["None"]\n'
         '}\n\n'
         f"User Query:\n{query}\n"
         "\n"
