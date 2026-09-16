@@ -116,22 +116,27 @@ def run_evaluation(csv_path: str):
     nest_asyncio.apply()
     
     print("\n--- PHASE 2: RUNNING RAGAS EVALUATION ---")
-    print("Using Groq (Compound) as the objective LLM-as-a-judge...")
+    print(f"Using Local {cfg.LLM_MODEL} as the objective LLM-as-a-judge...")
     
     import asyncio
     
-    # 1. Wrapper for Groq to bypass async deadlocks and Groq's strict 'n' limitations
-    class SyncToAsyncGroq(ChatGroq):
+    # 1. Wrapper for Local Ollama to bypass async deadlocks and API rate limits
+    from langchain_ollama import ChatOllama
+    class SyncToAsyncOllama(ChatOllama):
         async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
-            # Groq's API strictly forbids requesting multiple responses (n > 1).
-            # Ragas explicitly asks for n=3 during 'answer_relevancy'. We must strip it.
-            kwargs.pop("n", None)
+            # Convert the async callback manager to a sync one so we don't get unawaited coroutine warnings
+            sync_run_manager = run_manager.get_sync() if run_manager else None
             
             loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(None, lambda: self._generate(messages, stop, run_manager, **kwargs))
+            return await loop.run_in_executor(None, lambda: self._generate(messages, stop, sync_run_manager, **kwargs))
             
-    # We use groq/compound as the classic llama-3.1-8b was decommissioned in 2026.
-    judge_llm = SyncToAsyncGroq(model="groq/compound", max_retries=2)
+    # We are moving entirely to your local Llama3 instance!
+    # No TPM limits, no TPD limits, 100% free and private.
+    judge_llm = SyncToAsyncOllama(
+        model=cfg.LLM_MODEL, 
+        base_url="http://host.docker.internal:11434",
+        temperature=0.1 # Low temperature for more objective grading
+    )
     
     # 2. Wrapper for Ollama Embeddings to bypass async deadlocks
     from langchain_ollama import OllamaEmbeddings
@@ -148,6 +153,8 @@ def run_evaluation(csv_path: str):
         base_url="http://host.docker.internal:11434"
     )
     
+    # Explicitly configure Ragas to ask for only 1 response to permanently bypass the 'n' crash
+    answer_relevancy.strictness = 1
     metrics = [faithfulness, answer_relevancy, context_precision, context_recall]
     
     from ragas.run_config import RunConfig

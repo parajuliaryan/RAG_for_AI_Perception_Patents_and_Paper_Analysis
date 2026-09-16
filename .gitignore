@@ -1,4 +1,4 @@
-# ==========================================
+﻿# ==========================================
 # 1. RAG Data & Vector Database (DO NOT PUSH)
 # ==========================================
 # Raw scraped papers, PDFs, and JSON metadata
@@ -6,6 +6,11 @@ data/raw/
 data/processed/
 *.pdf
 *.json
+
+# Evaluation data (Results, Checkpoints, Ground Truth)
+data/evaluation/
+test_gt.csv
+analyze.py
 
 # ChromaDB storage (SQLite database, HNSW vector files, indexes)
 data/vector_store/
@@ -25,7 +30,7 @@ data/vector_store/
 # ==========================================
 __pycache__/
 *.py[cod]
-*$py.class
+*.class
 *.so
 .pytest_cache/
 .coverage
@@ -63,4 +68,3 @@ logs/
 tmp/
 .cache/
 context.md
-
