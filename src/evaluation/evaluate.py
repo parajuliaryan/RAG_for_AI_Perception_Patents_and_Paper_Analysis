@@ -169,7 +169,8 @@ def run_evaluation(csv_path: str):
         llm=judge_llm,
         embeddings=judge_embeddings,
         run_config=run_config,
-        raise_exceptions=False
+        raise_exceptions=False,
+        callbacks=callbacks
     )
     
     print("\n--- EVALUATION COMPLETE ---")
