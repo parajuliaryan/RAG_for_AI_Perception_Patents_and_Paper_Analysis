@@ -27,8 +27,7 @@ from ragas.metrics import (
     context_recall
 )
 
-# Groq and local embeddings for fully independent Ragas
-from langchain_groq import ChatGroq
+# Local embeddings and models for fully independent Ragas
 
 # Opik tracing (Optional but recommended)
 try:
@@ -159,7 +158,7 @@ def run_evaluation(csv_path: str):
     
     from ragas.run_config import RunConfig
     # We increase timeout to 600s but drop max_retries to 2.
-    # If Groq hallucinates bad JSON, Ragas will immediately assign NaN instead of infinitely retrying and hanging.
+    # If the local LLM hallucinates bad JSON, Ragas will immediately assign NaN instead of infinitely retrying and hanging.
     run_config = RunConfig(timeout=600, max_retries=2, max_workers=1)
     
     # Run the evaluation

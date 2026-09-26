@@ -25,7 +25,19 @@ class DocumentStandardizer:
                     full_text = self.pdf_parser.extract_text_from_url(doc.pdf_url, doc_id=doc.id)
                     
                 if full_text:
-                    content_body = f"Full Text:\n{full_text}"
+                    # Attempt to extract abstract if missing or defaulted
+                    if not doc.abstract or "No abstract provided" in doc.abstract:
+                        import re
+                        # Look for 'Abstract' followed by text, stopping at Introduction or common Patent sections
+                        abstract_pattern = re.compile(r'(?i)\babstract\b[\s\n:]+(.*?)(?=\b(1\.\s*introduction|introduction|index terms|background|field of the invention|summary|description|claims)\b)', re.DOTALL)
+                        match = abstract_pattern.search(full_text[:5000])  # Search only the beginning
+                        if match:
+                            extracted = match.group(1).strip()
+                            if len(extracted) > 50:
+                                doc.abstract = extracted
+                                logger.info(f"Regex successfully extracted abstract for {doc.id}")
+
+                    content_body = f"Abstract:\n{doc.abstract}\n\nFull Text:\n{full_text}" if doc.abstract and "No abstract" not in doc.abstract else f"Full Text:\n{full_text}"
                     logger.info(f"Successfully incorporated full text for {doc.id}")
                 else:
                     logger.debug(f"Falling back to abstract for {doc.id}")
