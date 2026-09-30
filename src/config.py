@@ -27,8 +27,14 @@ for _dir in [RAW_ARXIV_DIR, RAW_PATENTS_DIR, RAW_PDF_DIR, PROCESSED_DIR, EXTRACT
 # ---------------------------------------------------------------------------
 # Ollama / Model Settings
 # ---------------------------------------------------------------------------
-OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-LLM_MODEL: str = "llama3"
+# LOCAL MODEL CONFIG:
+# OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# LLM_MODEL: str = "llama3"
+
+# UNI GPU MODEL CONFIG (Through SSH Tunnel):
+OLLAMA_HOST: str = "http://host.docker.internal:14829"
+LLM_MODEL: str = "llama3.1:70b"
+
 EMBED_MODEL: str = "nomic-embed-text"
 
 # ---------------------------------------------------------------------------

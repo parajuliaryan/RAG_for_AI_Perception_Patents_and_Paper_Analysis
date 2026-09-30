@@ -131,9 +131,17 @@ def run_evaluation(csv_path: str):
             
     # We are moving entirely to your local Llama3 instance!
     # No TPM limits, no TPD limits, 100% free and private.
+    # LOCAL MODEL CONFIG:
+    # judge_llm = SyncToAsyncOllama(
+    #     model=cfg.LLM_MODEL, 
+    #     base_url="http://host.docker.internal:11434",
+    #     temperature=0.1 # Low temperature for more objective grading
+    # )
+    
+    # UNI GPU MODEL CONFIG:
     judge_llm = SyncToAsyncOllama(
         model=cfg.LLM_MODEL, 
-        base_url="http://host.docker.internal:11434",
+        base_url=cfg.OLLAMA_HOST,  # Inherits tunnel path from config.py
         temperature=0.1 # Low temperature for more objective grading
     )
     
