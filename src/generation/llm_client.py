@@ -23,10 +23,10 @@ class GenerationPipeline:
     Wraps a local Ollama LLM and enforces Pydantic structured output.
 
     Args:
-        model_name: Ollama model tag to use. Defaults to cfg.LLM_MODEL ("llama3").
+        model_name: Ollama model tag to use. Defaults to cfg.GENERATOR_MODEL.
     """
 
-    def __init__(self, model_name: str = cfg.LLM_MODEL) -> None:
+    def __init__(self, model_name: str = cfg.GENERATOR_MODEL) -> None:
         logger.info(
             f"Initializing GenerationPipeline | model='{model_name}' | host='{cfg.OLLAMA_HOST}'"
         )

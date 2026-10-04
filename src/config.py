@@ -33,7 +33,12 @@ for _dir in [RAW_ARXIV_DIR, RAW_PATENTS_DIR, RAW_PDF_DIR, PROCESSED_DIR, EXTRACT
 
 # UNI GPU MODEL CONFIG (Through SSH Tunnel):
 OLLAMA_HOST: str = "http://host.docker.internal:14829"
-LLM_MODEL: str = "llama3.1:70b"
+
+# --- Cross-Evaluation Setup ---
+# Experiment 1: Llama generates, Qwen judges.
+# Experiment 2: Qwen generates, Llama judges.
+GENERATOR_MODEL: str = "llama3.1:70b" 
+JUDGE_MODEL: str = "qwen2.5:72b"
 
 EMBED_MODEL: str = "nomic-embed-text"
 

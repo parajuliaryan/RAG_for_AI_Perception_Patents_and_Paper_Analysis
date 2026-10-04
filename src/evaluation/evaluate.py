@@ -115,7 +115,8 @@ def run_evaluation(csv_path: str):
     nest_asyncio.apply()
     
     print("\n--- PHASE 2: RUNNING RAGAS EVALUATION ---")
-    print(f"Using Local {cfg.LLM_MODEL} as the objective LLM-as-a-judge...")
+    print(f"Generator Model: {cfg.GENERATOR_MODEL}")
+    print(f"Judge Model: {cfg.JUDGE_MODEL}")
     
     import asyncio
     
@@ -140,7 +141,7 @@ def run_evaluation(csv_path: str):
     
     # UNI GPU MODEL CONFIG:
     judge_llm = SyncToAsyncOllama(
-        model=cfg.LLM_MODEL, 
+        model=cfg.JUDGE_MODEL, 
         base_url=cfg.OLLAMA_HOST,  # Inherits tunnel path from config.py
         temperature=0.1 # Low temperature for more objective grading
     )
