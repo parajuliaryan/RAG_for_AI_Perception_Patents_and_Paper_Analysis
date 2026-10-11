@@ -37,10 +37,10 @@ OLLAMA_HOST: str = "http://host.docker.internal:14829"
 # --- Cross-Evaluation Setup ---
 # Experiment 1: Llama generates, Qwen judges.
 # Experiment 2: Qwen generates, Llama judges.
-GENERATOR_MODEL: str = "llama3.1:70b" 
-JUDGE_MODEL: str = "qwen2.5:72b"
+GENERATOR_MODEL: str = "qwen2.5:72b" 
+JUDGE_MODEL: str = "llama3.1:70b"
 
-EMBED_MODEL: str = "nomic-embed-text"
+EMBED_MODEL: str = "qwen3-embedding:4b"
 
 # ---------------------------------------------------------------------------
 # Chunking Settings

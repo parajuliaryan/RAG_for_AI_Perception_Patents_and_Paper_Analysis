@@ -9,7 +9,7 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
-      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_HOST=http://host.docker.internal:14829
       - PYTHONPATH=/app   # <-- ADD THIS LINE
     extra_hosts:
       - "host.docker.internal:host-gateway"

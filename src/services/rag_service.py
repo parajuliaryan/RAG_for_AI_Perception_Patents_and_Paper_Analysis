@@ -53,7 +53,7 @@ class RAGService:
             persist_dir=str(cfg.VECTOR_STORE_DIR),
         )
         self.retriever = Retriever(vector_store=self.vector_store)
-        self.generator = GenerationPipeline(model_name=cfg.LLM_MODEL)
+        self.generator = GenerationPipeline(model_name=cfg.GENERATOR_MODEL)
 
         logger.info("RAGService initialized successfully.")
 
