@@ -10,3 +10,4 @@ class DocumentSchema(BaseModel):
     published_date: str
     pdf_url: Optional[str] = None
     local_path: Optional[str] = None
+    full_text: Optional[str] = None

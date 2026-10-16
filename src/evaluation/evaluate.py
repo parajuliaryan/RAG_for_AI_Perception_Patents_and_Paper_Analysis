@@ -80,11 +80,14 @@ def run_evaluation(csv_path: str):
         
         try:
             # 1. Run RAG Pipeline
-            result = rag_service.analyze_query(query=question, top_k=5)
+            result = rag_service.analyze_query(query=question, top_k=cfg.TOP_K_DEFAULT)
             
-            # 2. Extract JSON answer and Contexts
+            # 2. Extract JSON answer and Contexts (include Document Abstract metadata just like prompts.py)
             json_answer = result["response"].model_dump_json(indent=2)
-            chunk_texts = [chunk["text"] for chunk in result["context"]]
+            chunk_texts = [
+                f"Document Abstract: {chunk.get('metadata', {}).get('abstract', 'N/A')}\n{chunk['text']}"
+                for chunk in result["context"]
+            ]
             
             # 3. Save to checkpoint immediately
             processed_data.append({
@@ -157,8 +160,8 @@ def run_evaluation(csv_path: str):
             return await loop.run_in_executor(None, self.embed_query, text)
             
     judge_embeddings = SyncToAsyncOllamaEmbeddings(
-        model="nomic-embed-text",
-        base_url="http://host.docker.internal:11434"
+        model=cfg.EMBED_MODEL,
+        base_url=cfg.OLLAMA_HOST
     )
     
     # Explicitly configure Ragas to ask for only 1 response to permanently bypass the 'n' crash

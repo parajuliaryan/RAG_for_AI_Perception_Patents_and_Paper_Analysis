@@ -193,8 +193,10 @@ class RAGService:
             p_chunks.sort(key=lambda x: x.get("metadata", {}).get("chunk_index", 0))
             
             with open(debug_path, "w", encoding="utf-8") as f:
+                doc_abstract = p_chunks[0].get("metadata", {}).get("abstract", "N/A") if p_chunks else "N/A"
                 f.write(f"=== CHUNK DEBUG FOR: {p_id} ===\n")
-                f.write(f"Total Chunks: {len(p_chunks)}\n\n")
+                f.write(f"Total Chunks: {len(p_chunks)}\n")
+                f.write(f"Document Abstract (Metadata): {doc_abstract}\n\n")
                 for c in p_chunks:
                     c_idx = c.get("metadata", {}).get("chunk_index", 0)
                     c_text = c.get("text", "")

@@ -52,7 +52,7 @@ CHUNK_OVERLAP: int = 250
 # Vector Store Settings
 # ---------------------------------------------------------------------------
 COLLECTION_NAME: str = "ai_perception_docs"
-TOP_K_DEFAULT: int = 5
+TOP_K_DEFAULT: int = 15
 
 # ---------------------------------------------------------------------------
 # External API Keys  (loaded from .env — never hardcode here)

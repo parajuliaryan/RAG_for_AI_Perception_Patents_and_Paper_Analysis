@@ -199,23 +199,31 @@ class PatentScraper(BaseScraper):
                         abstract = p_node
                     elif isinstance(p_node, dict):
                         abstract = p_node.get("$", abstract)
+                    elif isinstance(p_node, list):
+                        parts = []
+                        for item in p_node:
+                            if isinstance(item, str):
+                                parts.append(item)
+                            elif isinstance(item, dict) and "$" in item:
+                                parts.append(item["$"])
+                        if parts:
+                            abstract = " ".join(parts)
                     break
             
-            # 6. Fetch Full Text (Claims & Description) via Google Patents HTML
-            full_text = self._fetch_google_patent_text(full_id)
-            if full_text:
-                combined_content = f"EPO Abstract:\n{abstract}\n\n{full_text}"
-            else:
-                combined_content = abstract
+            # 6. Fetch Full Text (Abstract fallback, Claims & Description) via Google Patents HTML
+            gp_abstract, full_text = self._fetch_google_patent_text(full_id)
+            if (not abstract or abstract == "No abstract available.") and gp_abstract:
+                abstract = gp_abstract
 
             doc_schema = DocumentSchema(
                 source="epo_ops",
                 id=full_id,
                 title=title,
                 authors=inventors if inventors else ["Unknown Inventor"],
-                abstract=combined_content,  
+                abstract=abstract,
                 published_date=date,
-                pdf_url=None
+                pdf_url=None,
+                full_text=full_text if full_text else None
             )
             parsed_docs.append(doc_schema)
             logger.debug(f"  Parsed: {full_id} | '{title[:60]}'")
@@ -226,9 +234,9 @@ class PatentScraper(BaseScraper):
         logger.info(f"Successfully parsed {len(parsed_docs)} patent(s) from EPO.")
         return parsed_docs
 
-    def _fetch_google_patent_text(self, patent_id: str) -> str:
+    def _fetch_google_patent_text(self, patent_id: str) -> tuple[str, str]:
         """
-        Scrapes the HTML of Google Patents to extract Claims and Detailed Description.
+        Scrapes the HTML of Google Patents to extract Abstract, Claims, and Detailed Description.
         This is 100% free and unlimited, provided we use mature patents (e.g. up to 2024) to avoid 404s.
         """
         import re
@@ -249,6 +257,13 @@ class PatentScraper(BaseScraper):
             
             soup = BeautifulSoup(response.text, "html.parser")
             
+            # Extract Abstract if present
+            abstract_text = ""
+            abs_section = soup.find(itemprop="abstract")
+            if abs_section:
+                abstract_text = abs_section.get_text(separator=" ", strip=True)
+                abstract_text = re.sub(r'(?i)^abstract\s*[:\-]?\s*', '', abstract_text).strip()
+            
             # Extract Claims
             claims_text = ""
             claims_section = soup.find(itemprop="claims")
@@ -267,8 +282,8 @@ class PatentScraper(BaseScraper):
             if desc_text:
                 full_text += f"# Detailed Description\n{desc_text}\n"
                 
-            return full_text
+            return abstract_text, full_text
             
         except Exception as e:
             logger.warning(f"  -> Failed to scrape full text for {patent_id} (fallback to abstract): {e}")
-            return ""
+            return "", ""
