@@ -193,10 +193,20 @@ class RAGService:
             p_chunks.sort(key=lambda x: x.get("metadata", {}).get("chunk_index", 0))
             
             with open(debug_path, "w", encoding="utf-8") as f:
-                doc_abstract = p_chunks[0].get("metadata", {}).get("abstract", "N/A") if p_chunks else "N/A"
+                meta0 = p_chunks[0].get("metadata", {}) if p_chunks else {}
                 f.write(f"=== CHUNK DEBUG FOR: {p_id} ===\n")
                 f.write(f"Total Chunks: {len(p_chunks)}\n")
-                f.write(f"Document Abstract (Metadata): {doc_abstract}\n\n")
+                f.write(f"Source Type: {meta0.get('source', 'N/A')}\n")
+                f.write(f"Publication Number / DOI (Metadata): {meta0.get('publication_number') or 'N/A'}\n")
+                f.write(f"Document Title (Metadata): {meta0.get('title', 'N/A')}\n")
+                f.write(f"Affiliated Institutions (Metadata): {meta0.get('affiliated_institutions') or 'N/A'}\n")
+                if meta0.get("source") in ("patent", "epo_ops"):
+                    f.write(f"Priority / Grant Date (Metadata): {meta0.get('priority_or_grant_date') or 'N/A'}\n")
+                    f.write(f"Patent Classifications (Metadata): {meta0.get('patent_classifications') or 'N/A'}\n")
+                f.write(f"Document Abstract (Metadata): {meta0.get('abstract', 'N/A')}\n")
+                if meta0.get("independent_claims"):
+                    f.write(f"Independent Claims (Metadata):\n{meta0.get('independent_claims')}\n")
+                f.write("\n")
                 for c in p_chunks:
                     c_idx = c.get("metadata", {}).get("chunk_index", 0)
                     c_text = c.get("text", "")

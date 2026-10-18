@@ -173,11 +173,36 @@ class PatentScraper(BaseScraper):
                     title = t.get("$", title)
                     break
             
-            # 3. Date
+            # 3. Date & Priority Date
             date_raw = pub_ref.get("date", {}).get("$", "")
             date = f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:]}" if len(date_raw) == 8 else "Unknown"
             
-            # 4. Inventors
+            prio_dates = []
+            prio_nodes = biblio.get("priority-claims", {}).get("priority-claim", [])
+            if isinstance(prio_nodes, dict):
+                prio_nodes = [prio_nodes]
+            for pr in prio_nodes:
+                p_doc_ids = pr.get("document-id", [])
+                if isinstance(p_doc_ids, dict):
+                    p_doc_ids = [p_doc_ids]
+                for p_id_node in p_doc_ids:
+                    p_d = p_id_node.get("date", {}).get("$", "")
+                    if len(p_d) == 8 and p_d.isdigit():
+                        prio_dates.append(f"{p_d[:4]}-{p_d[4:6]}-{p_d[6:]}")
+            earliest_prio = min(prio_dates) if prio_dates else None
+            date_label = "Grant Date" if kind.upper().startswith("B") else "Publication Date"
+            priority_or_grant_str = f"{date_label}: {date}" + (f" (Priority Date: {earliest_prio})" if earliest_prio else "")
+            
+            # 4. Applicants (Affiliated Companies/Institutions) & Inventors
+            applicants = []
+            app_nodes = biblio.get("parties", {}).get("applicants", {}).get("applicant", [])
+            if isinstance(app_nodes, dict):
+                app_nodes = [app_nodes]
+            for app in app_nodes:
+                app_name = app.get("applicant-name", {}).get("name", {}).get("$", "").strip()
+                if app_name and app_name not in applicants:
+                    applicants.append(app_name)
+
             inventors = []
             inv_nodes = biblio.get("parties", {}).get("inventors", {}).get("inventor", [])
             if isinstance(inv_nodes, dict):
@@ -186,6 +211,33 @@ class PatentScraper(BaseScraper):
                 name = inv.get("inventor-name", {}).get("name", {}).get("$", "")
                 if name:
                     inventors.append(name.title())
+            
+            # 4b. Patent Classifications (IPCR & CPC)
+            classifications = []
+            import re
+            ipcr_nodes = biblio.get("classifications-ipcr", {}).get("classification-ipcr", [])
+            if isinstance(ipcr_nodes, dict):
+                ipcr_nodes = [ipcr_nodes]
+            for ipcr in ipcr_nodes:
+                raw_cls = ipcr.get("text", {}).get("$", "")
+                m_cls = re.search(r'([A-H]\d{2}[A-Z])\s+(\d{1,4}/\d{2,6})', raw_cls)
+                if m_cls:
+                    code = f"{m_cls.group(1)} {m_cls.group(2)}"
+                    if code not in classifications:
+                        classifications.append(code)
+            cpc_nodes = biblio.get("patent-classifications", {}).get("patent-classification", [])
+            if isinstance(cpc_nodes, dict):
+                cpc_nodes = [cpc_nodes]
+            for cpc in cpc_nodes:
+                sec = cpc.get("section", {}).get("$", "")
+                c_cls = cpc.get("class", {}).get("$", "")
+                sub = cpc.get("subclass", {}).get("$", "")
+                mg = cpc.get("main-group", {}).get("$", "")
+                sg = cpc.get("subgroup", {}).get("$", "")
+                if sec and c_cls and sub and mg and sg:
+                    code = f"{sec}{c_cls}{sub} {mg}/{sg}"
+                    if code not in classifications:
+                        classifications.append(code)
             
             # 5. Abstract
             abstract = "No abstract available."
@@ -223,7 +275,11 @@ class PatentScraper(BaseScraper):
                 abstract=abstract,
                 published_date=date,
                 pdf_url=None,
-                full_text=full_text if full_text else None
+                full_text=full_text if full_text else None,
+                publication_number=full_id,
+                affiliated_institutions=applicants if applicants else None,
+                patent_classifications=classifications if classifications else None,
+                priority_or_grant_date=priority_or_grant_str if date != "Unknown" else None,
             )
             parsed_docs.append(doc_schema)
             logger.debug(f"  Parsed: {full_id} | '{title[:60]}'")

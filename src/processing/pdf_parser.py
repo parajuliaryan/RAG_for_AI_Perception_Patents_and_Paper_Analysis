@@ -205,20 +205,37 @@ class PDFParser:
             "acknowledgements", "motivation", "keywords", "index terms",
             "article info", "history", "system overview", "problem statement",
             # Tech Patent Headers
-            "claims", "what is claimed is", "detailed description", "summary",
-            "summary of the invention", "brief summary", "background of the invention",
-            "field of the invention", "technical field", "description of embodiments",
-            "description", "brief description of the drawings",
+            "claims", "what is claimed is", "it is claimed", "we claim", "the invention claimed is",
+            "detailed description", "summary", "summary of the invention", "brief summary",
+            "background of the invention", "field of the invention", "technical field",
+            "description of embodiments", "description", "brief description of the drawings",
             "cross-reference to related applications", "cross reference to related applications"
         }
         
-        # Require an explicit section number/Roman numeral prefix so normal prose lines
-        # at the beginning of paragraphs or abstracts are NEVER turned into # Headers.
+        # Require an explicit section number/Roman numeral prefix with a period (or multi-level 1.1)
+        # so margin line numbers (5, 10, 15...) and normal prose lines are NEVER turned into # Headers.
         header_pattern = re.compile(
-            r'^(?:(?:I{1,3}|IV|V|VI{1,3}|IX|X|[A-Z])\.\s+|\d+(?:\.\d+)*\.?\s+)([A-Z][a-zA-Z0-9\s\-:]{2,50})$'
+            r'^(?:(?:I{1,3}|IV|V|VI{1,3}|IX|X|[A-Z])\.\s+|\d{1,2}(?:\.\d+)+\.?\s+|\d{1,2}\.\s+)([A-Z][a-zA-Z0-9\s\-]{2,50})$'
+        )
+        # Exclude patent claims and prose sentences from matching header_pattern
+        non_header_body = re.compile(
+            r'^(?:a|an|the|one\s+or\s+more|at\s+least\s+one|each|wherein|in\s+claim|according\s+to|'
+            r'method\s+of|system\s+of|device\s+of|apparatus\s+of|non-transitory|computer[\s\-]+implemented|'
+            r'computer[\s\-]+readable|vehicular|humanoid|electronic\s+control)\b'
+            r'|\b(?:comprising|comprises|configured|includes|including|having|storing|wherein|claim|claims|'
+            r'instructions|plurality|operable|coupled|connected|disposed|executing|executed|may\s+be|can\s+be|'
+            r'is\s+a|are\s+a)\b',
+            re.IGNORECASE
         )
         
-        for line in lines:
+        seen_claims_header = False
+        last_para_idx = -1
+        for i, l in enumerate(lines):
+            s_l = l.strip()
+            if re.match(r'^\[\d{4}\]', s_l) and int(s_l[1:5]) >= 20:
+                last_para_idx = i
+        
+        for idx, line in enumerate(lines):
             stripped = line.strip()
             if not stripped:
                 formatted_lines.append(line)
@@ -226,15 +243,25 @@ class PDFParser:
                 
             # Collapse spaced-out headers like "A B S T R A C T" -> "ABSTRACT"
             stripped = self._collapse_spaced_header(stripped)
+            
+            # Detect unheadered start of patent Claims section after the last [0xxx] paragraph
+            if not seen_claims_header and last_para_idx != -1 and idx > last_para_idx:
+                if re.match(r'^1\.\s+(?:A|An|One\s+or\s+more)\s+[a-zA-Z]', stripped):
+                    formatted_lines.append("\n# Claims\n")
+                    seen_claims_header = True
+                elif stripped == "1." and idx + 1 < len(lines) and re.match(r'^(?:A|An|One\s+or\s+more)\s+[a-zA-Z]', lines[idx + 1].strip()):
+                    formatted_lines.append("\n# Claims\n")
+                    seen_claims_header = True
                 
-            # If the line is just a stray number (like '1'), skip it and append
+            # If the line is just a stray number (like '1'), skip header formatting and append
             if stripped.isdigit() and len(stripped) < 3:
                 formatted_lines.append(line)
                 continue
                 
             # Check for exact known headers (optionally preceded by INID code like "(57) Abstract")
-            inid_stripped = re.sub(r'^\(?\d{2}\)?\s*', '', stripped).strip(':.- ')
-            is_exact = stripped.lower().strip(':.- ') in exact_headers or inid_stripped.lower() in exact_headers
+            inid_stripped = re.sub(r'^\(?\d{2}\)?\s*', '', stripped).strip(':.-‘’\'" ')
+            clean_exact_probe = stripped.lower().strip(':.-‘’\'" ')
+            is_exact = clean_exact_probe in exact_headers or inid_stripped.lower() in exact_headers
             
             # All-caps check: must contain at least one 4+ letter word and not be an IPC/CPC code
             is_all_caps = (
@@ -243,16 +270,28 @@ class PDFParser:
                 and bool(re.search(r'[A-Z]{4,}', stripped))
                 and not bool(re.search(r'\(\d{4}\.\d{2}\)', stripped))
             )
-            match = header_pattern.match(stripped)
+            match = None
+            if not seen_claims_header:
+                m = header_pattern.match(stripped)
+                if m:
+                    body = m.group(1).strip()
+                    if not body.endswith('-') and not non_header_body.search(body):
+                        match = m
             
             if len(stripped) < 60:
                 if is_exact or match or is_all_caps:
                     if is_exact and inid_stripped.lower() in exact_headers:
                         clean_title = inid_stripped.title()
+                    elif is_exact:
+                        clean_title = clean_exact_probe.title()
                     elif match:
                         clean_title = match.group(1).title()
                     else:
                         clean_title = stripped.title()
+                    
+                    if clean_title.lower() in {"claims", "what is claimed is", "it is claimed", "we claim", "the invention claimed is"}:
+                        seen_claims_header = True
+                        clean_title = "Claims"
                     
                     if not stripped.startswith('#'):
                         formatted_lines.append(f"\n# {clean_title}\n")

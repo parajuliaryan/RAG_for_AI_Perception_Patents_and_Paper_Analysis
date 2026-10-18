@@ -82,12 +82,33 @@ def run_evaluation(csv_path: str):
             # 1. Run RAG Pipeline
             result = rag_service.analyze_query(query=question, top_k=cfg.TOP_K_DEFAULT)
             
-            # 2. Extract JSON answer and Contexts (include Document Abstract metadata just like prompts.py)
+            # 2. Extract JSON answer and Contexts (include document-level metadata once per unique parent doc)
             json_answer = result["response"].model_dump_json(indent=2)
-            chunk_texts = [
-                f"Document Abstract: {chunk.get('metadata', {}).get('abstract', 'N/A')}\n{chunk['text']}"
-                for chunk in result["context"]
-            ]
+            chunk_texts = []
+            seen_docs = set()
+            for chunk in result["context"]:
+                chunk_id = chunk.get("id", "N/A")
+                parent_id = chunk.get("parent_id") or (
+                    chunk_id.rsplit("_chunk_", 1)[0] if "_chunk_" in chunk_id else chunk_id
+                )
+                meta = chunk.get("metadata", {}) or {}
+                pub_no = meta.get("publication_number") or parent_id
+                header_parts = [f"Source ID: {pub_no}"]
+                if parent_id not in seen_docs:
+                    seen_docs.add(parent_id)
+                    if meta.get("affiliated_institutions"):
+                        header_parts.append(f"Affiliated Institutions / Assignee: {meta['affiliated_institutions']}")
+                    if meta.get("abstract") and meta.get("abstract") != "N/A":
+                        header_parts.append(f"Document Abstract: {meta['abstract']}")
+                    if meta.get("source") in ("patent", "epo_ops"):
+                        if meta.get("patent_classifications"):
+                            header_parts.append(f"Patent Classifications (IPC/CPC): {meta['patent_classifications']}")
+                        if meta.get("priority_or_grant_date"):
+                            header_parts.append(f"Patent Priority / Grant Date: {meta['priority_or_grant_date']}")
+                        if meta.get("independent_claims"):
+                            header_parts.append(f"Independent Claims Scope:\n{meta['independent_claims']}")
+                header_parts.append(chunk["text"])
+                chunk_texts.append("\n".join(header_parts))
             
             # 3. Save to checkpoint immediately
             processed_data.append({
