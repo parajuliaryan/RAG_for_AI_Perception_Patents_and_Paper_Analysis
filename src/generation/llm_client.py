@@ -34,6 +34,7 @@ class GenerationPipeline:
             model=model_name,
             base_url=cfg.OLLAMA_HOST,
             temperature=0.0,  # Deterministic extraction — no creativity needed
+            num_ctx=16384,    # Fit 72B model + KV cache 100% inside 80GB GPU VRAM
         )
         # Bind the Pydantic schema so every call returns a validated model instance
         self.structured_llm = base_llm.with_structured_output(FinalOutputSchema)

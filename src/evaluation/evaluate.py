@@ -164,10 +164,14 @@ def run_evaluation(csv_path: str):
     # )
     
     # UNI GPU MODEL CONFIG:
+    # Setting num_ctx=16384 prevents llama3.1:70b from allocating its default 131072-token KV cache (~46 GB),
+    # which otherwise pushes total model memory to 86.6 GB and spills 13.6 GB onto slow CPU RAM.
     judge_llm = SyncToAsyncOllama(
         model=cfg.JUDGE_MODEL, 
         base_url=cfg.OLLAMA_HOST,  # Inherits tunnel path from config.py
-        temperature=0.1 # Low temperature for more objective grading
+        temperature=0.1, # Low temperature for more objective grading
+        num_ctx=16384,
+        client_kwargs={"timeout": 300.0},
     )
     
     # 2. Wrapper for Ollama Embeddings to bypass async deadlocks
@@ -190,9 +194,9 @@ def run_evaluation(csv_path: str):
     metrics = [faithfulness, answer_relevancy, context_precision, context_recall]
     
     from ragas.run_config import RunConfig
-    # We increase timeout to 600s but drop max_retries to 2.
-    # If the local LLM hallucinates bad JSON, Ragas will immediately assign NaN instead of infinitely retrying and hanging.
-    run_config = RunConfig(timeout=600, max_retries=2, max_workers=1)
+    # Increase job timeout to 1200s (since context_precision makes 15 sequential LLM calls per row)
+    # and set max_retries=1 so timed-out threads do not queue duplicate retries on Ollama.
+    run_config = RunConfig(timeout=1200, max_retries=1, max_workers=1)
     
     # Run the evaluation
     result = evaluate(
