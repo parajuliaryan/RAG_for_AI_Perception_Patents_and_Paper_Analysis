@@ -94,9 +94,11 @@ def run_opik_evaluation(csv_path: str) -> None:
 
     eval_dir = cfg.DATA_DIR / "evaluation"
     gen_checkpoint_path = eval_dir / "checkpoint.json"
-    opik_checkpoint_path = eval_dir / "checkpoint_Exp7_opik.json"
-    opik_csv_path = eval_dir / "opik_results_Exp7.csv"
-    combined_csv_path = eval_dir / "ragas_opik_combined_Exp7.csv"
+    is_llama_gen = "llama" in cfg.GENERATOR_MODEL.lower() and "qwen" in cfg.JUDGE_MODEL.lower()
+    exp_tag = "Exp8_llama_gen_qwen_judge" if is_llama_gen else "Exp7"
+    opik_checkpoint_path = eval_dir / f"checkpoint_{exp_tag}_opik.json"
+    opik_csv_path = eval_dir / f"opik_results_{exp_tag}.csv"
+    combined_csv_path = eval_dir / f"ragas_opik_combined_{exp_tag}.csv"
 
     # ------------------------------------------------------------------
     # PHASE 1: Load or Generate RAG Answers
@@ -142,6 +144,20 @@ def run_opik_evaluation(csv_path: str) -> None:
                     json.dump(processed_data, f, indent=2)
             except Exception as exc:
                 print(f"Error generating answer for query {idx + 1}: {exc}")
+
+        if cfg.GENERATOR_MODEL != cfg.JUDGE_MODEL:
+            try:
+                import requests
+                print(
+                    f"\nUnloading generator model ({cfg.GENERATOR_MODEL}) from GPU VRAM before Phase 2..."
+                )
+                requests.post(
+                    f"{cfg.OLLAMA_HOST}/api/generate",
+                    json={"model": cfg.GENERATOR_MODEL, "keep_alive": 0},
+                    timeout=30,
+                )
+            except Exception as exc:
+                print(f"Note: Could not explicitly unload generator model ({exc}).")
     else:
         print("\n--- PHASE 1: ALL ANSWERS ALREADY GENERATED (SKIPPING GENERATION) ---")
 
@@ -232,14 +248,18 @@ def run_opik_evaluation(csv_path: str) -> None:
     print(f"Opik GEval Relevancy (mean) : {mean_geval:.4f}")
     print(f"Detailed Opik results saved : {opik_csv_path}")
 
-    # Merge with Experiment 6 RAGAS scores if available
-    ragas_exp6_path = eval_dir / "ragas_results_Exp6_topk15_qwen_gen_llama_judge.csv"
-    if not ragas_exp6_path.exists():
-        ragas_exp6_path = eval_dir / "ragas_results.csv"
+    # Merge with corresponding RAGAS scores if available
+    ragas_exp_path = (
+        eval_dir / "ragas_results_Exp8_topk15_llama_gen_qwen_judge.csv"
+        if is_llama_gen
+        else eval_dir / "ragas_results_Exp6_topk15_qwen_gen_llama_judge.csv"
+    )
+    if not ragas_exp_path.exists():
+        ragas_exp_path = eval_dir / "ragas_results.csv"
 
-    if ragas_exp6_path.exists():
+    if ragas_exp_path.exists():
         try:
-            ragas_df = pd.read_csv(ragas_exp6_path)
+            ragas_df = pd.read_csv(ragas_exp_path)
             ragas_cols = [
                 c
                 for c in [

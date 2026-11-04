@@ -125,6 +125,19 @@ def run_evaluation(csv_path: str):
             print(f"Error processing query {idx + 1}: {e}")
             print("Skipping to next query. You can manually inspect the logs.")
 
+    # Unload GENERATOR_MODEL from GPU VRAM before loading JUDGE_MODEL
+    if cfg.GENERATOR_MODEL != cfg.JUDGE_MODEL:
+        try:
+            import requests
+            print(f"\nUnloading generator model ({cfg.GENERATOR_MODEL}) from GPU VRAM before Phase 2...")
+            requests.post(
+                f"{cfg.OLLAMA_HOST}/api/generate",
+                json={"model": cfg.GENERATOR_MODEL, "keep_alive": 0},
+                timeout=30,
+            )
+        except Exception as exc:
+            print(f"Note: Could not explicitly unload generator model ({exc}).")
+
     # 3. Build Ragas Dataset from checkpoint data
     data_dict = {
         "question": [item["question"] for item in processed_data],
@@ -218,6 +231,15 @@ def run_evaluation(csv_path: str):
     result_df = result.to_pandas()
     result_df.to_csv(output_path, index=False)
     print(f"\nDetailed evaluation results saved to {output_path}")
+
+    if "llama" in cfg.GENERATOR_MODEL.lower() and "qwen" in cfg.JUDGE_MODEL.lower():
+        import shutil
+        exp_ckpt = cfg.DATA_DIR / "evaluation" / "checkpoint_Exp8_topk15_llama_gen_qwen_judge.json"
+        exp_csv = cfg.DATA_DIR / "evaluation" / "ragas_results_Exp8_topk15_llama_gen_qwen_judge.csv"
+        if os.path.exists(checkpoint_path):
+            shutil.copyfile(checkpoint_path, exp_ckpt)
+        result_df.to_csv(exp_csv, index=False)
+        print(f"Named experiment copies saved to:\n  - {exp_ckpt}\n  - {exp_csv}")
 
 if __name__ == "__main__":
     # Point this to your saved CSV
