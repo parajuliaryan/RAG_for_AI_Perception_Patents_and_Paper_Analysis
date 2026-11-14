@@ -1,21 +1,22 @@
 ﻿# ==========================================
 # 1. RAG Data & Vector Database (DO NOT PUSH)
 # ==========================================
-# Raw scraped papers, PDFs, and JSON metadata
-data/raw/
-data/processed/
+# Ignore entire data directory (raw, processed, evaluation, vector_store, backups, automated_ingestion_test)
+data/
 *.pdf
 *.json
+*.txt
+!requirements.txt
 
 # Evaluation data (Results, Checkpoints, Ground Truth)
-data/evaluation/
 test_gt.csv
 analyze.py
 
 # ChromaDB storage (SQLite database, HNSW vector files, indexes)
-data/vector_store/
 *.sqlite3
 *.db
+*.bin
+*.pickle
 
 # ==========================================
 # 2. Environment Variables & Secrets
