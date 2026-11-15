@@ -568,6 +568,157 @@ class DocumentStandardizer:
             "independent_claims": indep_claims,
         }
 
+    def extract_paper_affiliations(self, full_text: str) -> List[str]:
+        """
+        Extracts author affiliations (universities, research institutes, and companies)
+        from the opening header/footnote region of an academic paper.
+        """
+        if not full_text:
+            return []
+
+        if "\nFull Text:\n" in full_text:
+            body = full_text.split("\nFull Text:\n", 1)[1]
+        else:
+            body = full_text
+
+        header_window = body[:5000]
+
+        pre_abs_match = re.search(
+            r'(?:^|\n)\s*(?:#+\s*)?(?:abstract|1\.?\s+introduction|i\.?\s+introduction)\b',
+            header_window,
+            re.IGNORECASE,
+        )
+        author_block = header_window[:pre_abs_match.start()] if pre_abs_match else header_window[:2500]
+        if pre_abs_match and pre_abs_match.start() < 250:
+            author_block = header_window[:2200]
+
+        def fix_hash_line(line: str) -> str:
+            s = line.strip()
+            if s.startswith("#"):
+                s = re.sub(r'^#+\s*', '', s).strip()
+                if re.match(r'^\d+[A-Za-z]+$', s):
+                    num = re.match(r'^\d+', s).group(0)
+                    rest = s[len(num):].upper()
+                    return f"{num}{rest}"
+            return s
+
+        raw_lines = [fix_hash_line(l) for l in header_window.split("\n") if l.strip()]
+        author_lines = [fix_hash_line(l) for l in author_block.split("\n") if l.strip()]
+
+        merged_author_lines = []
+        i = 0
+        while i < len(author_lines):
+            cur = author_lines[i]
+            if (
+                re.match(r'^(?:\d{1,2}|[a-d])$', cur)
+                and i + 1 < len(author_lines)
+                and not re.match(r'^[1-9][A-Za-z]', author_lines[i + 1])
+            ):
+                nxt = author_lines[i + 1]
+                if re.search(
+                    r'(?:University|Institute|Faculty|Department|School|College|Polytechnic|Academy|Laboratory|GmbH|AG|Ltd|Inc|Corp)',
+                    nxt,
+                    re.I,
+                ):
+                    merged_author_lines.append(f"{cur} {nxt}")
+                    i += 2
+                    continue
+            if merged_author_lines and (
+                merged_author_lines[-1].endswith("|")
+                or merged_author_lines[-1].endswith(",")
+                or re.search(r'\b(?:of|for|and|in|at)\s*$', merged_author_lines[-1], re.I)
+                or re.match(
+                    r'^(?:Xi\'an|Cambridge|of\s+Automation|Automation,|Engineering,\s+Purdue|[A-Z][a-z]+,\s+\d{4,6}\s+[A-Z]|[0-9]{4,6}\s+[A-Z])',
+                    cur,
+                )
+            ):
+                merged_author_lines[-1] = merged_author_lines[-1] + " " + cur
+                i += 1
+                continue
+            merged_author_lines.append(cur)
+            i += 1
+
+        inst_keywords = re.compile(
+            r'\b(?:University|Universit[äa]t|Institute|Institut|Hochschule|TH\s+Ingolstadt|TU\s+Munich|TU\s+Delft|TU\s+Darmstadt|'
+            r'USTC|HKUST|UCAS|Fraunhofer|Chinese\s+Academy\s+of\s+Sciences|Laboratory|Lab\b|College|School\s+of|Department\s+of|'
+            r'Faculty\s+of|Polytechnic|Centre\s+for|Center|GmbH|AG\b|Ltd\.?|Inc\.?|Corporation|Company|NVIDIA|Xiaomi|Zenseact|'
+            r'Horizon\s+Robotics|Tencent|Li\s+Auto|42dot|Hyundai|Infineon|AVL|Persival|Waytous)\b',
+            re.IGNORECASE,
+        )
+
+        prose_verbs = re.compile(
+            r'\b(?:is|are|was|were|rely|relies|present|presents|propose|proposes|introduce|introduces|contribute|contributes|'
+            r'validate|validates|enable|enables|demonstrate|demonstrates|provide|provides|allow|allows|have\s+become)\b',
+            re.IGNORECASE,
+        )
+
+        candidates = []
+
+        for line in merged_author_lines:
+            if re.match(
+                r'^(?:Received|Revised|Accepted|Published|Citation|Copyright|Licensee|Academic\s+Editor|Correspondence|CORRESPONDING|Funding|Keywords|Article\s+ID|doi:|e-ISSN|http|Figure\s+\d|Prompt:)',
+                line,
+                re.I,
+            ):
+                continue
+            pipe_parts = [p.strip() for p in line.split("|") if p.strip()]
+            for part in pipe_parts:
+                inline_splits = re.split(r'(?:,\s*|\s{2,})(?=[1-9]\s*(?:[A-Z]|42dot))', part)
+                for seg in inline_splits:
+                    seg = seg.strip()
+                    seg = re.split(r';\s*[a-zA-Z0-9._%+-]+@', seg)[0].strip()
+                    if "@" in seg or prose_verbs.search(seg):
+                        continue
+                    m_num = re.match(
+                        r'^(?:(\d{1,2}|[a-d])\s+|(\d)(?=[A-Z]|42dot)|[a-d](?=(?:Department|School|Institute|Faculty|College|University|Center|Centre))|[†‡§¶]\s*)',
+                        seg,
+                    )
+                    if m_num or inst_keywords.search(seg):
+                        if seg == "142dot":
+                            clean_seg = "42dot"
+                        else:
+                            clean_seg = re.sub(
+                                r'^(?:[1-9]\s*|[a-d]\s+|[a-d](?=(?:Department|School|Institute|Faculty|College|University|Center|Centre))|[†‡§¶]\s*)',
+                                '',
+                                seg,
+                            ).strip()
+                        if re.search(
+                            r'[a-zA-Z]\d,\d|[a-zA-Z][∗\*†‡],\d|\b(?:and|AND)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\d',
+                            seg,
+                        ):
+                            continue
+                        if re.search(
+                            r'\b(?:Simulation\s+of\s+Automotive|Dynamic\s+Gaussian\s+Splatting|Autoregressive|End-to-End\s+Autonomous|Hardware-in-the-Loop|Validation\s+for\s+connected|Real-Time\s+Lidar|Advances\s+in\s+Autonomous|Practical\s+Approach|Development\s+Method|Sim2Real-AD|OneFixer|INTERACT:|IDPrior:|Digital\s+And\s+Robotic)\b',
+                            clean_seg,
+                            re.I,
+                        ):
+                            continue
+                        if inst_keywords.search(clean_seg):
+                            clean_seg = clean_seg.replace("Gruaduate", "Graduate")
+                            candidates.append(clean_seg)
+
+        for line in raw_lines:
+            if re.match(r'^[†‡§¶]\s*(?:PhD|MS|Postdoctoral|Associate\s+Professor|Professor|Research)', line):
+                m_uni = re.search(
+                    r'((?:[A-Z][a-zA-Z]+\s+)*University(?:,\s*Department\s+of\s+[A-Za-z\s&]+)?)',
+                    line,
+                )
+                if m_uni:
+                    candidates.append(m_uni.group(1).strip())
+
+        seen = set()
+        unique_affs = []
+        for c in candidates:
+            c_clean = re.sub(r'\s+', ' ', c).strip(' ,;.')
+            if not c_clean or len(c_clean) < 3:
+                continue
+            key = c_clean.lower()
+            if key not in seen:
+                seen.add(key)
+                unique_affs.append(c_clean)
+
+        return unique_affs
+
     def process(self, documents: List[DocumentSchema]) -> List[Dict[str, Any]]:
         standardized_docs = []
         for doc in documents:
@@ -612,12 +763,17 @@ class DocumentStandardizer:
                             doc.patent_classifications = patent_meta["patent_classifications"]
                         if not doc.independent_claims and patent_meta.get("independent_claims"):
                             doc.independent_claims = patent_meta["independent_claims"]
-                    elif doc.source in ("paper", "arxiv") and not doc.publication_number:
-                        m_doi = re.search(r'\b(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)\b', full_text[:15000])
-                        if m_doi:
-                            doc.publication_number = m_doi.group(1).rstrip('.')
-                        elif doc.source == "arxiv":
-                            doc.publication_number = doc.id
+                    elif doc.source in ("paper", "arxiv"):
+                        if not doc.publication_number:
+                            m_doi = re.search(r'\b(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)\b', full_text[:15000])
+                            if m_doi:
+                                doc.publication_number = m_doi.group(1).rstrip('.')
+                            elif doc.source == "arxiv":
+                                doc.publication_number = doc.id
+                        if not doc.affiliated_institutions:
+                            paper_affs = self.extract_paper_affiliations(full_text)
+                            if paper_affs:
+                                doc.affiliated_institutions = paper_affs
 
                     has_valid_abstract = bool(doc.abstract and "no abstract" not in doc.abstract.lower())
                     content_body = (

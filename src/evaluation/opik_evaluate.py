@@ -93,9 +93,8 @@ def run_opik_evaluation(csv_path: str) -> None:
         return
 
     eval_dir = cfg.DATA_DIR / "evaluation"
-    gen_checkpoint_path = eval_dir / "checkpoint.json"
-    is_llama_gen = "llama" in cfg.GENERATOR_MODEL.lower() and "qwen" in cfg.JUDGE_MODEL.lower()
-    exp_tag = "Exp8_llama_gen_qwen_judge" if is_llama_gen else "Exp7"
+    exp_tag = getattr(cfg, "EXPERIMENT_TAG", "Exp9_foolproof_chunking_and_extraction")
+    gen_checkpoint_path = eval_dir / f"checkpoint_{exp_tag}.json"
     opik_checkpoint_path = eval_dir / f"checkpoint_{exp_tag}_opik.json"
     opik_csv_path = eval_dir / f"opik_results_{exp_tag}.csv"
     combined_csv_path = eval_dir / f"ragas_opik_combined_{exp_tag}.csv"
@@ -249,11 +248,7 @@ def run_opik_evaluation(csv_path: str) -> None:
     print(f"Detailed Opik results saved : {opik_csv_path}")
 
     # Merge with corresponding RAGAS scores if available
-    ragas_exp_path = (
-        eval_dir / "ragas_results_Exp8_topk15_llama_gen_qwen_judge.csv"
-        if is_llama_gen
-        else eval_dir / "ragas_results_Exp6_topk15_qwen_gen_llama_judge.csv"
-    )
+    ragas_exp_path = eval_dir / f"ragas_results_{exp_tag}.csv"
     if not ragas_exp_path.exists():
         ragas_exp_path = eval_dir / "ragas_results.csv"
 

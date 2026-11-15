@@ -85,6 +85,7 @@ def _setup_isolated_dirs() -> Dict[str, Path]:
         "raw_arxiv": base_test_dir / "raw" / "arxiv",
         "raw_patents": base_test_dir / "raw" / "patents",
         "raw_pdfs": base_test_dir / "raw" / "pdfs",
+        "texts": base_test_dir / "texts",
         "chunks_debug": base_test_dir / "chunks_debug",
         "vector_store": base_test_dir / "vector_store",
     }
@@ -95,6 +96,7 @@ def _setup_isolated_dirs() -> Dict[str, Path]:
     cfg.RAW_ARXIV_DIR = dirs["raw_arxiv"]
     cfg.RAW_PATENTS_DIR = dirs["raw_patents"]
     cfg.RAW_PDF_DIR = dirs["raw_pdfs"]
+    cfg.EXTRACTED_TEXT_DIR = dirs["texts"]
     cfg.CHUNKS_DEBUG_DIR = dirs["chunks_debug"]
     cfg.VECTOR_STORE_DIR = dirs["vector_store"]
 

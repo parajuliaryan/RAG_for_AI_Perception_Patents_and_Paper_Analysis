@@ -73,7 +73,8 @@ def ingest_local_directory(dir_path: str):
     # Save chunks to chunks_debug/ so you can verify them
     service._save_chunks_for_debug(chunks)
     
-    logger.info("Embedding and indexing into ChromaDB...")
+    logger.info("Embedding and indexing into ChromaDB (resetting collection to clear stale chunks)...")
+    service.vector_store.reset_collection()
     service.vector_store.add_documents(chunks)
     
     logger.info("Successfully ingested local documents into the Vector Store!")

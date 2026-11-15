@@ -14,6 +14,7 @@ class ChromaStore(BaseVectorStore):
     ):
         self.embedder = embedder
         self.persist_dir = persist_dir
+        self.collection_name = collection_name
         
         # Ensure destination directory exists
         Path(self.persist_dir).mkdir(parents=True, exist_ok=True)
@@ -24,6 +25,17 @@ class ChromaStore(BaseVectorStore):
         # Get or create collection with cosine distance
         self.collection = self.client.get_or_create_collection(
             name=collection_name,
+            metadata={"hnsw:space": "cosine"}
+        )
+
+    def reset_collection(self) -> None:
+        """Deletes and recreates the Chroma collection so stale chunks from prior chunking strategies are removed."""
+        try:
+            self.client.delete_collection(name=self.collection_name)
+        except Exception:
+            pass
+        self.collection = self.client.get_or_create_collection(
+            name=self.collection_name,
             metadata={"hnsw:space": "cosine"}
         )
 

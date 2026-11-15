@@ -14,10 +14,11 @@ DATA_DIR = BASE_DIR / "data"
 RAW_ARXIV_DIR = DATA_DIR / "raw" / "arxiv"
 RAW_PATENTS_DIR = DATA_DIR / "raw" / "patents"
 RAW_PDF_DIR = DATA_DIR / "raw" / "pdfs"
-PROCESSED_DIR = DATA_DIR / "processed"
+# Experiment 9 isolated storage (preserves original data/processed and data/vector_store untouched)
+PROCESSED_DIR = DATA_DIR / "processed_exp9"
 EXTRACTED_TEXT_DIR = PROCESSED_DIR / "texts"
 CHUNKS_DEBUG_DIR = PROCESSED_DIR / "chunks_debug"
-VECTOR_STORE_DIR = DATA_DIR / "vector_store"
+VECTOR_STORE_DIR = DATA_DIR / "vector_store_exp9"
 LOGS_DIR = DATA_DIR / "logs"
 
 # Ensure all data directories exist on import
@@ -49,10 +50,11 @@ CHUNK_SIZE: int = 2500
 CHUNK_OVERLAP: int = 250
 
 # ---------------------------------------------------------------------------
-# Vector Store Settings
+# Vector Store & Experiment Settings
 # ---------------------------------------------------------------------------
 COLLECTION_NAME: str = "ai_perception_docs"
 TOP_K_DEFAULT: int = 15
+EXPERIMENT_TAG: str = os.getenv("EXPERIMENT_TAG", "Exp9_foolproof_chunking_and_extraction")
 
 # ---------------------------------------------------------------------------
 # External API Keys  (loaded from .env — never hardcode here)

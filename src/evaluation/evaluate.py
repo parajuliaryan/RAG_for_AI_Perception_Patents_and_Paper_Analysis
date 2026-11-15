@@ -54,7 +54,8 @@ def run_evaluation(csv_path: str):
 
     rag_service = RAGService()
     
-    checkpoint_path = os.path.join("data", "evaluation", "checkpoint.json")
+    exp_tag = getattr(cfg, "EXPERIMENT_TAG", "Exp9_foolproof_chunking_and_extraction")
+    checkpoint_path = os.path.join("data", "evaluation", f"checkpoint_{exp_tag}.json")
     processed_data = []
     
     if os.path.exists(checkpoint_path):
@@ -226,20 +227,12 @@ def run_evaluation(csv_path: str):
     print("Final RAGAS Scores:")
     print(result)
     
-    # Save the detailed results to a CSV for your thesis
-    output_path = cfg.DATA_DIR / "evaluation" / "ragas_results.csv"
+    # Save the detailed results to an experiment-tagged CSV so prior experiments are never overwritten
+    output_path = cfg.DATA_DIR / "evaluation" / f"ragas_results_{exp_tag}.csv"
     result_df = result.to_pandas()
     result_df.to_csv(output_path, index=False)
     print(f"\nDetailed evaluation results saved to {output_path}")
-
-    if "llama" in cfg.GENERATOR_MODEL.lower() and "qwen" in cfg.JUDGE_MODEL.lower():
-        import shutil
-        exp_ckpt = cfg.DATA_DIR / "evaluation" / "checkpoint_Exp8_topk15_llama_gen_qwen_judge.json"
-        exp_csv = cfg.DATA_DIR / "evaluation" / "ragas_results_Exp8_topk15_llama_gen_qwen_judge.csv"
-        if os.path.exists(checkpoint_path):
-            shutil.copyfile(checkpoint_path, exp_ckpt)
-        result_df.to_csv(exp_csv, index=False)
-        print(f"Named experiment copies saved to:\n  - {exp_ckpt}\n  - {exp_csv}")
+    print(f"Generation checkpoint saved to {checkpoint_path}")
 
 if __name__ == "__main__":
     # Point this to your saved CSV
