@@ -87,6 +87,7 @@ class OllamaOpikJudgeModel(OpikBaseModel):
             base_url=base_url,
             temperature=temperature,
             num_ctx=num_ctx,
+            num_thread=16,
             client_kwargs={"timeout": timeout},
         )
         self._json_llm = ChatOllama(

@@ -66,65 +66,88 @@ def run_evaluation(csv_path: str):
     processed_questions = {item["question"] for item in processed_data}
     
     print("\n--- PHASE 1: GENERATING ANSWERS ---")
+    pending_rows = []
     for idx, row in df.iterrows():
         question = str(row['question'])
         gt = str(row['ground_truth'])
-        
         if question.strip() == "nan" or not question.strip():
             continue
-            
         if question in processed_questions:
             print(f"Skipping {idx + 1}/{len(df)} (Already processed): {question[:50]}...")
             continue
-            
-        print(f"\nProcessing Query {idx + 1}/{len(df)}: {question[:50]}...")
-        
+        pending_rows.append((idx, question, gt))
+
+    if pending_rows:
+        # Step 1A: Batch-retrieve all contexts first while the embedding model is loaded,
+        # preventing VRAM model-swapping between qwen3-embedding:4b and qwen2.5:72b on every query.
+        print(f"Pre-retrieving top-{cfg.TOP_K_DEFAULT} chunks for {len(pending_rows)} queries...")
+        retrieved_map = {}
+        for idx, question, _ in pending_rows:
+            retrieved_map[idx] = rag_service.retriever.retrieve(query=question, top_k=cfg.TOP_K_DEFAULT)
+
         try:
-            # 1. Run RAG Pipeline
-            result = rag_service.analyze_query(query=question, top_k=cfg.TOP_K_DEFAULT)
-            
-            # 2. Extract JSON answer and Contexts (include document-level metadata once per unique parent doc)
-            json_answer = result["response"].model_dump_json(indent=2)
-            chunk_texts = []
-            seen_docs = set()
-            for chunk in result["context"]:
-                chunk_id = chunk.get("id", "N/A")
-                parent_id = chunk.get("parent_id") or (
-                    chunk_id.rsplit("_chunk_", 1)[0] if "_chunk_" in chunk_id else chunk_id
+            import requests
+            requests.post(
+                f"{cfg.OLLAMA_HOST}/api/embeddings",
+                json={"model": cfg.EMBED_MODEL, "prompt": "", "keep_alive": 0},
+                timeout=15,
+            )
+        except Exception:
+            pass
+
+        # Step 1B: Generate structured JSON answers back-to-back with GENERATOR_MODEL kept resident in VRAM
+        for idx, question, gt in pending_rows:
+            print(f"\nProcessing Query {idx + 1}/{len(df)}: {question[:50]}...")
+            try:
+                retrieved_chunks = retrieved_map[idx]
+                structured_response = rag_service.generator.generate(
+                    query=question,
+                    context_chunks=retrieved_chunks,
                 )
-                meta = chunk.get("metadata", {}) or {}
-                pub_no = meta.get("publication_number") or parent_id
-                header_parts = [f"Source ID: {pub_no}"]
-                if parent_id not in seen_docs:
-                    seen_docs.add(parent_id)
-                    if meta.get("affiliated_institutions"):
-                        header_parts.append(f"Affiliated Institutions / Assignee: {meta['affiliated_institutions']}")
-                    if meta.get("abstract") and meta.get("abstract") != "N/A":
-                        header_parts.append(f"Document Abstract: {meta['abstract']}")
-                    if meta.get("source") in ("patent", "epo_ops"):
-                        if meta.get("patent_classifications"):
-                            header_parts.append(f"Patent Classifications (IPC/CPC): {meta['patent_classifications']}")
-                        if meta.get("priority_or_grant_date"):
-                            header_parts.append(f"Patent Priority / Grant Date: {meta['priority_or_grant_date']}")
-                        if meta.get("independent_claims"):
-                            header_parts.append(f"Independent Claims Scope:\n{meta['independent_claims']}")
-                header_parts.append(chunk["text"])
-                chunk_texts.append("\n".join(header_parts))
-            
-            # 3. Save to checkpoint immediately
-            processed_data.append({
-                "question": question,
-                "answer": json_answer,
-                "contexts": chunk_texts,
-                "ground_truth": gt
-            })
-            
-            with open(checkpoint_path, "w", encoding="utf-8") as f:
-                json.dump(processed_data, f, indent=2)
-                
-        except Exception as e:
-            print(f"Error processing query {idx + 1}: {e}")
-            print("Skipping to next query. You can manually inspect the logs.")
+                result = {"response": structured_response, "context": retrieved_chunks}
+
+                # 2. Extract JSON answer and Contexts (include document-level metadata once per unique parent doc)
+                json_answer = result["response"].model_dump_json(indent=2)
+                chunk_texts = []
+                seen_docs = set()
+                for chunk in result["context"]:
+                    chunk_id = chunk.get("id", "N/A")
+                    parent_id = chunk.get("parent_id") or (
+                        chunk_id.rsplit("_chunk_", 1)[0] if "_chunk_" in chunk_id else chunk_id
+                    )
+                    meta = chunk.get("metadata", {}) or {}
+                    pub_no = meta.get("publication_number") or parent_id
+                    header_parts = [f"Source ID: {pub_no}"]
+                    if parent_id not in seen_docs:
+                        seen_docs.add(parent_id)
+                        if meta.get("affiliated_institutions"):
+                            header_parts.append(f"Affiliated Institutions / Assignee: {meta['affiliated_institutions']}")
+                        if meta.get("abstract") and meta.get("abstract") != "N/A":
+                            header_parts.append(f"Document Abstract: {meta['abstract']}")
+                        if meta.get("source") in ("patent", "epo_ops"):
+                            if meta.get("patent_classifications"):
+                                header_parts.append(f"Patent Classifications (IPC/CPC): {meta['patent_classifications']}")
+                            if meta.get("priority_or_grant_date"):
+                                header_parts.append(f"Patent Priority / Grant Date: {meta['priority_or_grant_date']}")
+                            if meta.get("independent_claims"):
+                                header_parts.append(f"Independent Claims Scope:\n{meta['independent_claims']}")
+                    header_parts.append(chunk["text"])
+                    chunk_texts.append("\n".join(header_parts))
+
+                # 3. Save to checkpoint immediately
+                processed_data.append({
+                    "question": question,
+                    "answer": json_answer,
+                    "contexts": chunk_texts,
+                    "ground_truth": gt
+                })
+
+                with open(checkpoint_path, "w", encoding="utf-8") as f:
+                    json.dump(processed_data, f, indent=2)
+
+            except Exception as e:
+                print(f"Error processing query {idx + 1}: {e}")
+                print("Skipping to next query. You can manually inspect the logs.")
 
     # Unload GENERATOR_MODEL from GPU VRAM before loading JUDGE_MODEL
     if cfg.GENERATOR_MODEL != cfg.JUDGE_MODEL:
@@ -185,7 +208,8 @@ def run_evaluation(csv_path: str):
         base_url=cfg.OLLAMA_HOST,  # Inherits tunnel path from config.py
         temperature=0.1, # Low temperature for more objective grading
         num_ctx=16384,
-        client_kwargs={"timeout": 300.0},
+        num_thread=16,
+        client_kwargs={"timeout": 600.0},
     )
     
     # 2. Wrapper for Ollama Embeddings to bypass async deadlocks
@@ -200,7 +224,8 @@ def run_evaluation(csv_path: str):
             
     judge_embeddings = SyncToAsyncOllamaEmbeddings(
         model=cfg.EMBED_MODEL,
-        base_url=cfg.OLLAMA_HOST
+        base_url=cfg.OLLAMA_HOST,
+        num_gpu=0,  # Keep 4B embedder on CPU during Phase 2 so JUDGE_MODEL is never evicted from GPU VRAM
     )
     
     # Explicitly configure Ragas to ask for only 1 response to permanently bypass the 'n' crash

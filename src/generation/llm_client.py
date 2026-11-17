@@ -34,7 +34,8 @@ class GenerationPipeline:
             model=model_name,
             base_url=cfg.OLLAMA_HOST,
             temperature=0.0,  # Deterministic extraction — no creativity needed
-            num_ctx=16384,    # Fit 72B model + KV cache 100% inside 80GB GPU VRAM
+            num_ctx=16384,    # Required so 15 full 2500-char chunks + patent claims (~12.5k tokens) are never left-truncated
+            num_thread=16,    # Prevent 128-thread dual-socket NUMA thrashing on DGX EPYC CPUs
         )
         # Bind the Pydantic schema so every call returns a validated model instance
         self.structured_llm = base_llm.with_structured_output(FinalOutputSchema)
